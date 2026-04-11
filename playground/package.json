@@ -1,0 +1,21 @@
+{
+  "name": "playground",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare || echo \"Nuxt prepare failed, you may have not built the @chiballc/utils package; try running 'pnpm build' in the root of the project\""
+  },
+  "dependencies": {
+    "@chiballc/utils": "workspace:*",
+    "nuxt": "^4.3.1",
+    "vue": "^3.5.29",
+    "vue-router": "^4.6.4"
+  },
+  "devDependencies": {
+    "@types/webworker": "^0.0.72"
+  }
+}

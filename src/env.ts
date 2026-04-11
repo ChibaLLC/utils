@@ -1,0 +1,36 @@
+function checkVercel() {
+  try {
+    return !!(process?.env?.VERCEL || process?.env?.NOW_REGION);
+  } catch (e) {
+    console.error(e);
+    return false;
+  }
+}
+
+function checkDevelopment() {
+  try {
+    let env = process?.env?.ENV || process?.env?.NODE_ENV;
+    if (typeof env === "boolean") return env;
+
+    env = env?.toLowerCase().trim();
+    return env === "development" || env === "dev";
+  } catch (e) {
+    console.error(e);
+    return false;
+  }
+}
+
+/** Detect whether the app is running on Vercel */
+export const isVercel = /* @__PURE__ */ checkVercel();
+
+/** Detect whether the app is running in development mode */
+export const isDevelopment = /* @__PURE__ */ checkDevelopment();
+
+/** Detect whether the app is running in production mode */
+export const isProduction = !isDevelopment;
+
+export const isWebWorker = typeof WorkerGlobalScope !== "undefined" && self instanceof WorkerGlobalScope;
+export const isServiceWorker =
+  typeof ServiceWorkerGlobalScope !== "undefined" && self instanceof ServiceWorkerGlobalScope;
+
+export const isWorker = isWebWorker || isServiceWorker;

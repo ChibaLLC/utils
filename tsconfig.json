@@ -1,0 +1,33 @@
+{
+	"compilerOptions": {
+		"rootDir": ".",
+		"module": "esnext",
+		"target": "esnext",
+		"types": [],
+		"sourceMap": true,
+		"declaration": true,
+		"declarationMap": true,
+		"noUncheckedIndexedAccess": true,
+		"exactOptionalPropertyTypes": true,
+		"strict": true,
+		"verbatimModuleSyntax": true,
+		"isolatedModules": true,
+		"noUncheckedSideEffectImports": true,
+		"moduleDetection": "force",
+		"skipLibCheck": true,
+		"resolveJsonModule": true,
+		"esModuleInterop": true,
+		"moduleResolution": "bundler"
+	},
+	"include": [
+		"src",
+		"packages",
+		"src/index.ts",
+		"rolldown.config.ts"
+	],
+	"exclude": [
+		"node_modules",
+		"dist",
+		"playground"
+	]
+}

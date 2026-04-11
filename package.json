@@ -1,0 +1,79 @@
+{
+  "name": "@chiballc/utils",
+  "version": "2.2.2",
+  "description": "",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    },
+    "./service-workers": {
+      "types": "./dist/service-workers/index.d.ts",
+      "import": "./dist/service-workers/index.mjs",
+      "require": "./dist/service-workers/index.js"
+    },
+    "./plugins": {
+      "types": "./dist/service-workers/plugin.d.ts",
+      "import": "./dist/service-workers/plugin.mjs",
+      "require": "./dist/service-workers/plugin.js"
+    },
+    "./web-workers": {
+      "types": "./dist/web-workers/index.d.ts",
+      "import": "./dist/web-workers/index.mjs",
+      "require": "./dist/web-workers/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 0",
+    "build": "pnpm rolldown -c",
+    "prepack": "pnpm run build",
+    "release": "pnpm changeset publish",
+    "ci": "pnpm install --frozen-lockfile && pnpm build"
+  },
+  "homepage": "https://github.com/chiballc/utils#readme",
+  "bugs": {
+    "url": "https://github.com/chiballc/utils/issues"
+  },
+  "keywords": [
+    "chiballc",
+    "utils"
+  ],
+  "author": "AllanBosire",
+  "license": "ISC",
+  "packageManager": "pnpm@10.22.0+sha512.bf049efe995b28f527fd2b41ae0474ce29186f7edcb3bf545087bd61fbbebb2bf75362d1307fda09c2d288e1e499787ac12d4fcb617a974718a6051f2eee741c",
+  "dependencies": {
+    "consola": "^3.4.2",
+    "std-env": "4.0.0-rc.1",
+    "ulid": "^3.0.2"
+  },
+  "peerDependencies": {
+    "vite": "^5.0.0 || ^6.0.0 || ^7.0.0"
+  },
+  "peerDependenciesMeta": {
+    "vite": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.29.8",
+    "@chiballc/types": "^0.0.0",
+    "rolldown": "1.0.0-rc.6",
+    "rolldown-plugin-dts": "^0.22.3",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.1"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
+  }
+}
