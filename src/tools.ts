@@ -8,7 +8,7 @@ import type {
   UnArray,
   MaybeArray,
 } from "@chiballc/types";
-import { collectFromGenerator, isAsyncGenerator, isGenerator, values, isPromise } from "./index";
+import { collectFromGenerator, isAsyncGenerator, isGenerator, values } from "./index";
 
 export function debounce<T extends (...args: any[]) => any>(func: T, delay: number = 200) {
   let timer: ReturnType<typeof setTimeout> | null = null;
@@ -130,26 +130,40 @@ export function peek(item: any): any {
     return item.values().next().value;
   }
 
-  if (isGenerator(item) || isAsyncGenerator(item)) {
-    const nextResult = item.next();
-
-    const isNextPromise = isPromise(nextResult);
-    const first = isNextPromise ? nextResult.then((r) => r.value) : nextResult.value;
-
-    let usedFirst = false;
+  if (isGenerator(item)) {
+    const firstResult = item.next();
     const originalNext = item.next.bind(item);
 
-    // @ts-ignore
-    item.next = function (...args: any[]) {
+    let usedFirst = false;
+
+    item.next = function (...args) {
       if (!usedFirst) {
         usedFirst = true;
-        return isNextPromise ? Promise.resolve({ value: first, done: false }) : { value: first, done: false };
+        return firstResult;
       }
-      // @ts-ignore
+
       return originalNext(...args);
     };
 
-    return first;
+    return firstResult.value;
+  }
+
+  if (isAsyncGenerator(item)) {
+    const firstResultPromise = item.next();
+    const originalNext = item.next.bind(item);
+
+    let usedFirst = false;
+
+    item.next = function (...args) {
+      if (!usedFirst) {
+        usedFirst = true;
+        return firstResultPromise;
+      }
+
+      return originalNext(...args);
+    };
+
+    return firstResultPromise.then((r) => r.value);
   }
 
   if (typeof item !== "string" && isIterable(item)) {
@@ -293,6 +307,7 @@ export function isNone(v: any): v is undefined | null {
 
 export async function settle<T extends readonly unknown[]>(
   promises: readonly [...{ [K in keyof T]: Promise<T[K]> }],
+  onError?: JSFunction<void, [index: number, error: PromiseRejectedResult]>,
 ): Promise<{ [K in keyof T]: T[K] | undefined }> {
   const results = await Promise.allSettled(promises);
 
@@ -300,12 +315,10 @@ export async function settle<T extends readonly unknown[]>(
     if (result.status === "fulfilled") {
       return result.value;
     } else {
-      const log = (globalThis as any).console || console;
-      log.error(`Promise at index ${index} failed:`, result.reason);
-      // @ts-ignore
-      if (globalThis.$alert && globalThis.$alert.error && typeof globalThis.$alert.error === "function") {
-        // @ts-ignore
-        globalThis.$alert.error("An error occured: " + result.reason);
+      if (onError) {
+        onError(index, result);
+      } else {
+        console.error(result.reason);
       }
       return undefined;
     }
@@ -377,8 +390,4 @@ export function makeThenable<T, S extends object>(source: S, promise: Promise<T>
     },
   });
   return thenable as S & Promise<T>;
-}
-
-export function getRandomId() {
-  return Math.random().toString(36).slice(2, 11) + Date.now().toString(36);
 }
