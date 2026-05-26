@@ -49,7 +49,7 @@
     "test": "pnpm run test:kibao",
     "test:kibao": "node ./scripts/validate-kibao.mjs && pnpm --filter kibao-playground build",
     "build": "pnpm rolldown -c && pnpm run build:kibao",
-    "build:kibao": "pnpm --filter kibao run prepack && node ./scripts/copy-kibao.mjs",
+    "build:kibao": "pnpm --filter kibao exec nuxt-module-build prepare && pnpm --filter kibao run prepack && node ./scripts/copy-kibao.mjs",
     "prepack": "pnpm run build",
     "release": "pnpm changeset publish",
     "ci": "pnpm install --frozen-lockfile && pnpm build"
