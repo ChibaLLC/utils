@@ -8,6 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v5
 
@@ -19,9 +20,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           registry-url: "https://registry.npmjs.org/"
-          node-version: 22
+          node-version: 24
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
+
+      - name: Use npm with trusted publishing support
+        run: npm install -g npm@latest
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -30,4 +34,4 @@ jobs:
         run: pnpm build
 
       - name: Publish package
-        run: pnpm publish --access public
+        run: npm publish --access public
