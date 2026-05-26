@@ -7,10 +7,7 @@ import type { None } from "@chiballc/types";
 import { env } from "std-env";
 
 const console = consola.withTag("kibao-env");
-type ModuleRuntimeOptions = Partial<KibaoConfig["kibao"]> & {
-  baseURL?: string;
-};
-
+type ModuleRuntimeOptions = Partial<KibaoConfig["kibao"]>
 export function crawlVarsFromEnv(): Record<string, string> {
   const vars: Record<string, string> = {};
   if (typeof process === "undefined" || !process.env) {
@@ -82,7 +79,7 @@ export function reconsileConfig<T extends RuntimeConfig>(
 
   let merged = defu(config!.kibao, {
     disabled: publicKibao.disabled || moduleOptions.disabled,
-    baoServerURL: getEnvSereverURL() || publicKibao.baoServerURL || moduleOptions.baseURL,
+    baoServerURL: getEnvSereverURL() || publicKibao.baoServerURL || moduleOptions.baoServerURL,
     openbao: defu(publicKibao.openbao || {}, moduleOptions.openbao),
     vars: defu(publicKibao.vars || {}, moduleOptions.vars),
     serverURL: publicKibao.serverURL || moduleOptions.serverURL,
