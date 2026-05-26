@@ -1,3 +1,4 @@
+import "dotenv/config"
 import { entries, keys } from "@chiballc/utils";
 import { consola } from "consola";
 import { defu } from "defu";

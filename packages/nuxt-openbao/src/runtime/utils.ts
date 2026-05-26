@@ -1,11 +1,11 @@
-import type { OneOf, SmartString } from "@chiballc/types";
+import type { OneOf, Prettify, SmartString } from "@chiballc/types";
 import { joinURL } from "ufo";
 import { $fetch } from "ofetch";
 import { consola } from "consola";
 
 import { entries } from "@chiballc/utils";
 import type { OpenBaoOptions } from "../types";
-import { getEnvSereverURL, reconsileConfig, setEnv } from "./env";
+import { crawlVarsFromEnv, getEnvSereverURL, reconsileConfig, setEnv } from "./env";
 
 const console = consola.withTag("kibao-utils");
 
@@ -23,7 +23,7 @@ export type SecretFrom = {
   location: Location;
   baseURL: string;
 };
-export type KibaoCredentials = OneOf<[KibaoRoleCredentials, KibaoTokenCredentials]> & SecretFrom;
+export type KibaoCredentials = Prettify<OneOf<[KibaoRoleCredentials, KibaoTokenCredentials]> & SecretFrom>;
 export interface KibaoRoleCredentials {
   bao: {
     role: {
@@ -50,17 +50,36 @@ type OpenBaoKV2Response = {
     metadata?: unknown;
   };
 };
-export async function getSecrets(credentials: KibaoCredentials, access: SmartString<KibaoAccess>) {
+export async function getSecrets(credentials: KibaoCredentials, access: SmartString<KibaoAccess> = "public") {
   const { headers } = await getKibaoHeaders(credentials);
 
-  const path = credentials.location.path
-    ? credentials.location.path
-    : credentials.location.app && credentials.location.environment
-      ? joinURL("v1", credentials.location.app, "data", credentials.location.environment, access)
-      : null;
+  let cache: Record<string, string> | undefined = undefined;
+  const vars = () => {
+    if (cache) {
+      return cache;
+    }
+
+    cache = crawlVarsFromEnv();
+    return cache;
+  };
+  const app = (function () {
+    return credentials.location.app || vars()[`NUXT_KIBAO_OPENBAO_${access.toUpperCase()}_LOCATION_APP`];
+  })();
+
+  const environment = (function () {
+    return (
+      credentials.location.environment || vars()[`NUXT_KIBAO_OPENBAO_${access.toUpperCase()}_LOCATION_ENVIRONMENT`]
+    );
+  })();
+
+  const lit_path = (function () {
+    return credentials.location.path || vars()["NUXT_KIBAO_OPENBAO_PUBLIC_LOCATION_PATH"];
+  })();
+
+  const path = lit_path ? lit_path : app && environment ? joinURL("v1", app, "data", environment, access) : null;
 
   if (!path) {
-    throw new TypeError("Unexpected arguments for getting bao variables", {
+    throw new TypeError("getSecrets Unexpected arguments for getting bao variables", {
       cause: credentials,
     });
   }
@@ -178,38 +197,13 @@ export async function getAllVars(openbao: OpenBaoOptions) {
       continue;
     }
 
-    const baseURL = getEnvSereverURL() || config.baseURL;
-    if (!baseURL) {
+    config.baseURL = getEnvSereverURL() || config.baseURL;
+    if (!config.baseURL) {
       console.fatal("We could not determine the location of you openbao instance");
       continue;
     }
 
-    if (config.location?.path) {
-      // eslint-disable-next-line no-var
-      var { vars } = await getSecrets(
-        {
-          ...(config as any),
-          baseURL,
-        },
-        access,
-      );
-    } else if (config.location.app) {
-      // eslint-disable-next-line no-var
-      var { vars } = await getSecrets(
-        {
-          ...(config as any),
-          baseURL,
-        },
-        access,
-      );
-    } else {
-      console.fatal(
-        new TypeError("Unexpected arguments for getting bao variables", {
-          cause: config.location.app || config.location.path || config,
-        }),
-      );
-      continue;
-    }
+    const { vars } = await getSecrets(config, access);
 
     _vars[access] = vars;
   }

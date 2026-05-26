@@ -8,16 +8,16 @@ import {
   addImportsSources,
   addServerImports,
 } from "@nuxt/kit";
-import type { KibaoConfig, OpenBaoOptionsConfig } from "./types";
+import type { KibaoConfig } from "./types";
 import { reconsileConfig, setEnv } from "./runtime/env";
 import { entries, isEmpty } from "@chiballc/utils";
 import { consola } from "consola";
 import { createTypeTemplates, printOpenBaoConfig } from "./utils";
-import { getAllVars } from "./runtime/utils";
+import { getAllVars, type KibaoCredentials } from "./runtime/utils";
 
 export type PublicKibaoConfig = Omit<KibaoConfig["kibao"], "openbao"> & {
   openbao: {
-    public: OpenBaoOptionsConfig;
+    public: KibaoCredentials;
   };
 };
 
@@ -98,13 +98,13 @@ export default defineNuxtModule<KibaoConfig["kibao"]>({
           disabled: resolved.disabled,
           baoServerURL: resolved.baoServerURL,
           openbao: {
-            public: resolved.openbao.public as OpenBaoOptionsConfig,
+            public: resolved.openbao.public as KibaoCredentials,
           },
           serverURL: resolved.serverURL,
           vars: publicVars,
         } satisfies Omit<KibaoConfig["kibao"], "openbao"> & {
           openbao: {
-            public: OpenBaoOptionsConfig;
+            public: KibaoCredentials;
           };
         },
       },

@@ -1,11 +1,7 @@
 import type { Prettify, SmartString } from "@chiballc/types";
-import type { KibaoAccess, KibaoCredentials, Location } from "./runtime/utils";
+import type { KibaoAccess, KibaoCredentials } from "./runtime/utils";
 
-export type OpenBaoOptionsConfig = Omit<KibaoCredentials, "location"> & {
-  location: Location;
-};
-
-export type OpenBaoOptions = Prettify<Partial<Record<SmartString<KibaoAccess>, OpenBaoOptionsConfig>>>;
+export type OpenBaoOptions = Prettify<Partial<Record<SmartString<KibaoAccess>, KibaoCredentials>>>;
 
 export interface KibaoVars {
   [key: string]: string;
