@@ -1,0 +1,66 @@
+# Nuxt dev/build outputs
+.output
+.data
+.nuxt
+.nitro
+.cache
+dist
+
+# Node dependencies
+node_modules
+
+# Logs
+logs
+*.log
+runtime/android-toolchain-shims/
+
+# Misc
+.DS_Store
+.fleet
+.idea
+
+# Local env files
+.env
+.env.*
+!.env.example
+
+# Test coverage
+coverage/
+.pnpm-store
+out
+
+service-account.json
+# Cloned external services
+services/
+
+
+.dev.vars
+!.dev.vars.example
+
+.wrangler
+
+*.sqlite3
+*.db
+*.key
+
+# Android signing
+*.jks
+keystore.properties
+
+.storage
+out
+
+public/*-sw.js
+test-results
+/.kairos/
+test-results
+AI_FEEDBACK.md
+playwright-report
+
+auto-imports.d.ts
+/.codex
+
+# Local GUI/OpenSnitch launcher artifacts
+.heylomeet-vnc.pid
+scripts/heylomeet-gui-launch.sh
+scripts/desktop/

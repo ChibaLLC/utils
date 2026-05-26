@@ -1,0 +1,64 @@
+{
+  "name": "kibao",
+  "version": "1.0.0",
+  "description": "Nuxt Open Bao Module",
+  "repository": "@chiballc/kibao",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/types.d.mts",
+      "import": "./dist/module.mjs"
+    },
+    "./runtime": "./dist/runtime"
+  },
+  "main": "./dist/module.mjs",
+  "typesVersions": {
+    "*": {
+      ".": [
+        "./dist/types.d.mts"
+      ]
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "workspaces": [
+    "playground"
+  ],
+  "scripts": {
+    "prepack": "nuxt-module-build build",
+    "dev": "pnpm run dev:prepare && nuxt dev playground",
+    "dev:build": "nuxt build playground",
+    "dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxt prepare playground",
+    "release": "npm run lint && npm run test && npm run prepack && changelogen --release && npm publish && git push --follow-tags",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest watch",
+    "test:types": "vue-tsc --noEmit && cd playground && vue-tsc --noEmit"
+  },
+  "dependencies": {
+    "@chiballc/types": "^0.0.0",
+    "@chiballc/utils": "^2.2.2",
+    "@nuxt/kit": "^4.4.6",
+    "consola": "^3.4.2",
+    "defu": "^6.1.7",
+    "eslint-config-prettier": "^10.1.8",
+    "ofetch": "^1.5.1",
+    "ufo": "^1.6.4"
+  },
+  "devDependencies": {
+    "@nuxt/devtools": "^3.2.4",
+    "@nuxt/eslint-config": "^1.15.2",
+    "@nuxt/module-builder": "^1.0.2",
+    "@nuxt/schema": "^4.4.6",
+    "@nuxt/test-utils": "^4.0.3",
+    "@types/node": "latest",
+    "changelogen": "^0.6.2",
+    "eslint": "^10.4.0",
+    "nuxt": "^4.4.6",
+    "typescript": "~6.0.3",
+    "vitest": "^4.1.7",
+    "vue-tsc": "^3.3.1"
+  }
+}

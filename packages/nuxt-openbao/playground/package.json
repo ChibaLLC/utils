@@ -1,0 +1,14 @@
+{
+  "private": true,
+  "name": "kibao-playground",
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev",
+    "build": "nuxt build",
+    "generate": "nuxt generate"
+  },
+  "dependencies": {
+    "@chiballc/utils": "workspace:*",
+    "nuxt": "^4.4.6"
+  }
+}
