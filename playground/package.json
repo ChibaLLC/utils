@@ -6,8 +6,8 @@
     "build": "nuxt build",
     "dev": "nuxt dev",
     "generate": "nuxt generate",
-    "preview": "nuxt preview",
-    "postinstall": "nuxt prepare || echo \"Nuxt prepare failed, you may have not built the @chiballc/utils package; try running 'pnpm build' in the root of the project\""
+    "dev:prepare": "nuxt prepare",
+    "preview": "nuxt preview"
   },
   "dependencies": {
     "@chiballc/utils": "workspace:*",
