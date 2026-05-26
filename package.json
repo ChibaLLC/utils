@@ -2,6 +2,10 @@
   "name": "@chiballc/utils",
   "version": "2.2.3",
   "description": "",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ChibaLLC/utils"
+  },
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
