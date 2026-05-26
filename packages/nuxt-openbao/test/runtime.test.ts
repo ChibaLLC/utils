@@ -177,7 +177,7 @@ describe("Kibao environment helpers", () => {
   it("reconciles module options, runtime config, and public runtime config", () => {
     const config = reconsileConfig(
       {
-        baseURL: "http://option-openbao.local",
+        baoServerURL: "http://option-openbao.local",
         serverURL: "http://option-app.local",
         openbao: {
           public: {
@@ -200,7 +200,6 @@ describe("Kibao environment helpers", () => {
 
     expect(config).toMatchObject({
       baoServerURL: "http://option-openbao.local",
-      serverURL: "http://option-app.local",
       vars: {
         FROM_PUBLIC_CONFIG: "yes",
       },
