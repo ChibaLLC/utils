@@ -5,14 +5,18 @@ import { reconsileConfig, setEnv } from "../../env";
 import { getAllVars } from "../../utils";
 import type { KibaoVars } from "../../../types";
 
-export default defineNitroPlugin((app) => {
+export default defineNitroPlugin(async (app) => {
   const config = useRuntimeConfig();
   if (config.kibao?.disabled) {
     return;
   }
 
   const kibao = reconsileConfig(null, config);
-  setEnv({ vars: kibao.vars || {} });
+  const vars = await getAllVars(kibao.openbao);
+  for (const [_, _vars] of entries(vars)) {
+    kibao.vars = defu(kibao.vars, _vars) as KibaoVars;
+    setEnv({ vars: _vars || {} });
+  }
 
   app.hooks.hook("request", async (event) => {
     event.context.vars = {

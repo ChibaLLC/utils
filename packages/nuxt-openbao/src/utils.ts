@@ -4,7 +4,6 @@ import { addTypeTemplate } from "@nuxt/kit";
 import type { OpenBaoOptions } from "./types";
 import { entries } from "@chiballc/utils";
 
-
 export function printOpenBaoConfig(config: OpenBaoOptions) {
   for (const [access, options] of entries(config)) {
     if (!options) {
@@ -34,11 +33,10 @@ export function createTypeTemplates(vars: Record<string, string>, access: SmartS
       };
     }\n
   `;
-
   if (access === "private") {
     addTypeTemplate(
       {
-        filename: "kibao-nitro-app.d.ts",
+        filename: "kibao-nitro-private-app.d.ts",
         getContents() {
           return (
             vartype +
@@ -68,12 +66,13 @@ export function createTypeTemplates(vars: Record<string, string>, access: SmartS
       { nitro: true, nuxt: false },
     );
   } else {
-    addTypeTemplate({
-      filename: "kibao-nuxt-app.d.ts",
-      getContents() {
-        return (
-          vartype +
-          /* typescript */ `
+    addTypeTemplate(
+      {
+        filename: "kibao-nuxt-app.d.ts",
+        getContents() {
+          return (
+            vartype +
+            /* typescript */ `
           interface KibaoNuxtVars {
             readonly data: ParsedKibaoConfig['vars'];
             refresh: () => Promise<void>;
@@ -93,8 +92,45 @@ export function createTypeTemplates(vars: Record<string, string>, access: SmartS
 
           export {};
         `
-        );
+          );
+        },
       },
-    });
+      {
+        nitro: false,
+        nuxt: true,
+      },
+    );
+
+    addTypeTemplate(
+      {
+        filename: `kibao-nitro-${access}-app.d.ts`,
+        getContents() {
+          return (
+            vartype +
+            /* typescript */ `
+            declare global {
+              namespace NodeJS {
+                interface ProcessEnv {
+                  ${renderedVars}
+                }
+              }
+            }
+
+            declare module "h3" {
+              interface H3EventContext {
+                vars: {
+                  readonly data: ParsedKibaoConfig['vars'];
+                  refresh: () => Promise<void>;
+                };
+              }
+            }
+
+            export {};
+          `
+          );
+        },
+      },
+      { nitro: true, nuxt: false },
+    );
   }
 }

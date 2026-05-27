@@ -1,9 +1,9 @@
-const kibaoEnabled = process.env.NUXT_KIBAO_PLAYGROUND === "true";
+const kibaoEnabled = process.env.NUXT_KIBAO_PLAYGROUND === "false";
 const app = process.env.NUXT_KIBAO_OPENBAO_PUBLIC_LOCATION_APP || "demo";
 const environment = process.env.NUXT_KIBAO_OPENBAO_PUBLIC_LOCATION_ENVIRONMENT || "development";
 
 export default defineNuxtConfig({
-  modules: [["@chiballc/utils/kibao", { disabled: !kibaoEnabled }]],
+  modules: ["@chiballc/utils/kibao"],
   devtools: { enabled: true },
   compatibilityDate: "latest",
   kibao: {

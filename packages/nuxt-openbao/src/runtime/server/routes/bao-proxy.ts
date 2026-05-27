@@ -3,22 +3,35 @@ import { defineLazyEventHandler, proxyRequest, defineEventHandler, createError }
 import { consola } from "consola";
 import { useRuntimeConfig } from "nitropack/runtime";
 
-const console = consola.withTag("kibao-bao-proxy");
+const logger = consola.withTag("kibao-bao-proxy");
 export default defineLazyEventHandler(() => {
   const { kibao } = useRuntimeConfig();
 
-  return defineEventHandler((event) => {
+  return defineEventHandler(async (event) => {
     if (!kibao.baoServerURL) {
       throw createError({
-        message: "Could not find the 'baoServerURL'",
-        status: 500,
+        statusCode: 500,
+        statusMessage: "Missing 'baoServerURL' runtime configuration",
       });
     }
+
+    const start = performance.now();
+
     const target = joinURL(kibao.baoServerURL, event.path.replace("/bao-proxy", ""));
-    console.info("proxying to: ", target);
+
     return proxyRequest(event, target, {
-      onResponse(_, response) {
-        console.info("response", response.status);
+      async onResponse(_, response) {
+        const duration = Math.round(performance.now() - start);
+
+        if (response.ok) {
+          logger.info(
+            `${event.method} ${event.path} → ${target} · ${response.status} ${response.statusText} · ${duration}ms`,
+          );
+        } else {
+          logger.error(
+            `${event.method} ${event.path} → ${target} · ${response.status} ${response.statusText} · ${duration}ms`,
+          );
+        }
       },
     });
   });
