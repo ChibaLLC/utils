@@ -18,12 +18,15 @@ import { createMockOpenBaoServer, type MockOpenBaoServer } from "./helpers/openb
 
 describe("OpenBao runtime helpers", () => {
   let openbao: MockOpenBaoServer;
+  const envSnapshot = { ...process.env };
 
   beforeEach(async () => {
+    process.env = { ...envSnapshot };
     openbao = await createMockOpenBaoServer();
   });
 
   afterEach(async () => {
+    process.env = { ...envSnapshot };
     await openbao.close();
   });
 
@@ -107,6 +110,39 @@ describe("OpenBao runtime helpers", () => {
 
     expect(result.vars.PUBLIC_FROM_BAO).toBe("public-value");
     expect(openbao.requests[0]?.path).toBe("/v1/demo/data/test/public");
+  });
+
+  it("fills an incomplete location from environment variables", async () => {
+    process.env.NUXT_KIBAO_OPENBAO_PUBLIC_LOCATION_APP = "demo";
+    process.env.NUXT_KIBAO_OPENBAO_PUBLIC_LOCATION_ENVIRONMENT = "test";
+
+    const result = await getSecrets(
+      {
+        baseURL: openbao.baseURL,
+        location: {} as any,
+        token: `${PUBLIC_TOKEN_ATTESTATION}env-location-token`,
+      },
+      "public",
+    );
+
+    expect(result.vars.PUBLIC_FROM_BAO).toBe("public-value");
+    expect(openbao.requests[0]?.path).toBe("/v1/demo/data/test/public");
+  });
+
+  it("uses access-specific path environment variables", async () => {
+    process.env.NUXT_KIBAO_OPENBAO_PRIVATE_LOCATION_PATH = "/v1/demo/data/test/private";
+
+    const result = await getSecrets(
+      {
+        baseURL: openbao.baseURL,
+        location: {} as any,
+        token: `${PRIVATE_TOKEN_ATTESTATION}private-path-token`,
+      },
+      "private",
+    );
+
+    expect(result.vars.PRIVATE_FROM_BAO).toBe("private-value");
+    expect(openbao.requests[0]?.path).toBe("/v1/demo/data/test/private");
   });
 
   it("loads all configured public and private variables", async () => {
@@ -206,6 +242,76 @@ describe("Kibao environment helpers", () => {
       openbao: {
         public: {
           token: `${PUBLIC_TOKEN_ATTESTATION}option-token`,
+        },
+      },
+    });
+  });
+
+  it("fills module option locations from env without overwriting explicit options", () => {
+    process.env.NUXT_KIBAO_BAO_SERVER_URL = "http://env-openbao.local";
+    process.env.NUXT_KIBAO_OPENBAO_PUBLIC_TOKEN = `${PUBLIC_TOKEN_ATTESTATION}env-token`;
+    process.env.NUXT_KIBAO_OPENBAO_PUBLIC_LOCATION_ENVIRONMENT = "staging";
+
+    const config = reconsileConfig(
+      {
+        serverURL: "http://option-app.local",
+        openbao: {
+          public: {
+            location: {
+              app: "heylomeet",
+            } as any,
+          },
+        } as any,
+      },
+      null,
+    );
+
+    expect(config).toMatchObject({
+      baoServerURL: "http://env-openbao.local",
+      serverURL: "http://option-app.local",
+      openbao: {
+        public: {
+          token: `${PUBLIC_TOKEN_ATTESTATION}env-token`,
+          location: {
+            app: "heylomeet",
+            environment: "staging",
+          },
+        },
+      },
+    });
+  });
+
+  it("fills runtime config locations from env without overwriting explicit runtime config", () => {
+    process.env.NUXT_KIBAO_OPENBAO_PRIVATE_BAO_ROLE_ID = "env-role";
+    process.env.NUXT_KIBAO_OPENBAO_PRIVATE_BAO_SECRET_ID = "env-secret";
+    process.env.NUXT_KIBAO_OPENBAO_PRIVATE_LOCATION_ENVIRONMENT = "production";
+
+    const config = reconsileConfig(null, {
+      kibao: {
+        serverURL: "http://runtime-app.local",
+        openbao: {
+          private: {
+            location: {
+              app: "heylomeet",
+            },
+          },
+        },
+      },
+      public: {},
+    } as any);
+
+    expect(config).toMatchObject({
+      serverURL: "http://runtime-app.local",
+      openbao: {
+        private: {
+          bao: {
+            role: { id: "env-role" },
+            secret: { id: "env-secret" },
+          },
+          location: {
+            app: "heylomeet",
+            environment: "production",
+          },
         },
       },
     });

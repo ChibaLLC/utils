@@ -73,7 +73,7 @@ export async function getSecrets(credentials: KibaoCredentials, access: SmartStr
   })();
 
   const lit_path = (function () {
-    return credentials.location.path || vars()["NUXT_KIBAO_OPENBAO_PUBLIC_LOCATION_PATH"];
+    return credentials.location.path || vars()[`NUXT_KIBAO_OPENBAO_${access.toUpperCase()}_LOCATION_PATH`];
   })();
 
   const path = lit_path ? lit_path : app && environment ? joinURL("v1", app, "data", environment, access) : null;

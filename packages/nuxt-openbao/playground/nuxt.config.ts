@@ -1,25 +1,27 @@
+const kibaoEnabled = process.env.NUXT_KIBAO_PLAYGROUND === "true";
+const app = process.env.NUXT_KIBAO_OPENBAO_PUBLIC_LOCATION_APP || "demo";
+const environment = process.env.NUXT_KIBAO_OPENBAO_PUBLIC_LOCATION_ENVIRONMENT || "development";
+
 export default defineNuxtConfig({
-  modules: ["@chiballc/utils/kibao"],
+  modules: [["@chiballc/utils/kibao", { disabled: !kibaoEnabled }]],
   devtools: { enabled: true },
   compatibilityDate: "latest",
   kibao: {
-    serverURL: "BOOOOOOOOOOOOOLLLLASLASS",
+    serverURL: process.env.NUXT_PUBLIC_SITE_URL || "http://localhost:3000",
+    baoServerURL: process.env.NUXT_KIBAO_BAO_SERVER_URL || "http://127.0.0.1:8200",
     openbao: {
       public: {
         location: {
-          app: "demo",
-          environment: "development",
+          app,
+          environment,
         },
       },
       private: {
         location: {
-          app: "demo",
-          environment: "development",
+          app: process.env.NUXT_KIBAO_OPENBAO_PRIVATE_LOCATION_APP || app,
+          environment: process.env.NUXT_KIBAO_OPENBAO_PRIVATE_LOCATION_ENVIRONMENT || environment,
         },
       },
     },
-  },
-  kibao: {
-    disabled: true,
   },
 });
