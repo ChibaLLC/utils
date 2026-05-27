@@ -1,8 +1,15 @@
 # Changelog
 
+## 1.1.1
+
+### Patch Changes
+
+- fix: configs
+- ff1621d: chore: bug fix
+- cc4636e: fix: remove dotenv
+- 205e43e: fix: default server url
 
 ## v1.1.0
-
 
 ### 🚀 Enhancements
 
@@ -32,4 +39,3 @@
 
 - Allan Bosire ([@PrimalDjinn](https://github.com/PrimalDjinn))
 - PrimalDjinn <archiethebig@gmail.com>
-
