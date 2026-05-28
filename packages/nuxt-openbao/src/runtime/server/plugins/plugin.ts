@@ -12,8 +12,8 @@ export default defineNitroPlugin(async (app) => {
   }
 
   const kibao = reconsileConfig(null, config);
-  const vars = await getAllVars(kibao.openbao);
-  for (const [_, _vars] of entries(vars)) {
+  const groupedVars = await getAllVars(kibao.openbao);
+  for (const [_, _vars] of entries(groupedVars)) {
     kibao.vars = defu(kibao.vars, _vars) as KibaoVars;
     setEnv({ vars: _vars || {} });
   }

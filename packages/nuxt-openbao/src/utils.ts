@@ -20,117 +20,93 @@ export function printOpenBaoConfig(config: OpenBaoOptions) {
   }
 }
 
-export function createTypeTemplates(vars: Record<string, string>, access: SmartString<KibaoAccess>) {
-  const renderedVars = Object.keys(vars)
+type KibaoVarsByAccess = Partial<Record<SmartString<KibaoAccess>, Record<string, string>>>;
+
+function renderVars(vars: Record<string, string>) {
+  return Object.keys(vars)
+    .sort()
     .map((key) => `      ${JSON.stringify(key)}: string;`)
     .join("\n");
+}
 
-  const vartype = /* typescript */ `
-    import type { KibaoConfig, KibaoVars } from "#imports";
-    export interface ParsedKibaoConfig extends KibaoConfig["kibao"] {
+export function createTypeTemplates(vars: KibaoVarsByAccess) {
+  const publicVars = vars.public ?? {};
+
+  const allVars = Object.values(vars).reduce<Record<string, string>>((acc, current) => ({ ...acc, ...current }), {});
+
+  const renderedPublicVars = renderVars(publicVars);
+  const renderedAllVars = renderVars(allVars);
+
+  const createVarsType = (name: string, renderedVars: string) => /* typescript */ `
+    import type { KibaoConfig } from "#imports";
+
+    export interface ${name} extends KibaoConfig["kibao"] {
       vars: {
         ${renderedVars}
       };
-    }\n
-  `;
-  if (access === "private") {
-    addTypeTemplate(
-      {
-        filename: "kibao-nitro-private-app.d.ts",
-        getContents() {
-          return (
-            vartype +
-            /* typescript */ `
-            declare global {
-              namespace NodeJS {
-                interface ProcessEnv {
-                  ${renderedVars}
-                }
-              }
-            }
+    }
+    `;
 
-            declare module "h3" {
-              interface H3EventContext {
-                vars: {
-                  readonly data: ParsedKibaoConfig['vars'];
-                  refresh: () => Promise<void>;
-                };
-              }
-            }
+    const createNitroTemplate = () => /* typescript */ `
+    ${createVarsType("ParsedKibaoNitroConfig", renderedAllVars)}
 
-            export {};
-          `
-          );
-        },
-      },
-      { nitro: true, nuxt: false },
-    );
-  } else {
-    addTypeTemplate(
-      {
-        filename: "kibao-nuxt-app.d.ts",
-        getContents() {
-          return (
-            vartype +
-            /* typescript */ `
-          interface KibaoNuxtVars {
-            readonly data: ParsedKibaoConfig['vars'];
-            refresh: () => Promise<void>;
-          }
+    declare global {
+      namespace NodeJS {
+        interface ProcessEnv {
+          ${renderedAllVars}
+        }
+      }
+    }
 
-          declare module "#app" {
-            interface NuxtApp {
-              $vars: ParsedKibaoConfig['vars'];
-            }
-          }
+    declare module "h3" {
+      interface H3EventContext {
+        vars: {
+          readonly data: ParsedKibaoNitroConfig["vars"];
+          refresh: () => Promise<void>;
+        };
+      }
+    }
 
-          declare module "vue" {
-            interface ComponentCustomProperties {
-              $vars: ParsedKibaoConfig['vars'];
-            }
-          }
+    export {};
+    `;
 
-          export {};
-        `
-          );
-        },
-      },
-      {
-        nitro: false,
-        nuxt: true,
-      },
-    );
+  const createNuxtTemplate = () => /* typescript */ `
+    ${createVarsType("ParsedKibaoNuxtConfig", renderedPublicVars)}
 
-    addTypeTemplate(
-      {
-        filename: `kibao-nitro-${access}-app.d.ts`,
-        getContents() {
-          return (
-            vartype +
-            /* typescript */ `
-            declare global {
-              namespace NodeJS {
-                interface ProcessEnv {
-                  ${renderedVars}
-                }
-              }
-            }
+    declare module "#app" {
+      interface NuxtApp {
+        $vars: ParsedKibaoNuxtConfig["vars"];
+      }
+    }
 
-            declare module "h3" {
-              interface H3EventContext {
-                vars: {
-                  readonly data: ParsedKibaoConfig['vars'];
-                  refresh: () => Promise<void>;
-                };
-              }
-            }
+    declare module "vue" {
+      interface ComponentCustomProperties {
+        $vars: ParsedKibaoNuxtConfig["vars"];
+      }
+    }
 
-            export {};
-          `
-          );
-        },
-      },
-      { nitro: true, nuxt: false },
-    );
-  }
+    export {};
+    `;
+
+  addTypeTemplate(
+    {
+      filename: "kibao-nitro-app.d.ts",
+      getContents: createNitroTemplate,
+    },
+    {
+      nitro: true,
+      nuxt: false,
+    },
+  );
+
+  addTypeTemplate(
+    {
+      filename: "kibao-nuxt-app.d.ts",
+      getContents: createNuxtTemplate,
+    },
+    {
+      nitro: false,
+      nuxt: true,
+    },
+  );
 }

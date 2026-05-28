@@ -72,25 +72,19 @@ export default defineNuxtModule<KibaoConfig["kibao"]>({
       });
     });
 
-    const vars = await getAllVars(resolved.openbao);
-    const runtimeVars: Record<string, string> = {};
+    const groupedVars = await getAllVars(resolved.openbao);
+    const allVars: Record<string, string> = {};
 
-    for (const [access, _vars] of entries(vars)) {
-      if (!_vars) {
+    for (const [access, vars] of entries(groupedVars)) {
+      if (!vars) {
         throw new Error("Unable to obtain " + String(access) + " variables from openbao");
       }
 
-      createTypeTemplates(_vars, access);
-      setEnv({ vars: _vars });
-      Object.assign(runtimeVars, _vars);
+      setEnv({ vars });
+      Object.assign(allVars, vars);
     }
 
-    const publicVars = vars.public
-      ? {
-          ...vars.public,
-          _created: "true",
-        }
-      : undefined;
+    createTypeTemplates(groupedVars);
 
     updateRuntimeConfig({
       public: {
@@ -98,10 +92,10 @@ export default defineNuxtModule<KibaoConfig["kibao"]>({
           disabled: resolved.disabled,
           baoServerURL: resolved.baoServerURL,
           openbao: {
-            public: resolved.openbao.public as KibaoCredentials,
+            public: groupedVars.public || ({} as any),
           },
           serverURL: resolved.serverURL,
-          vars: publicVars,
+          vars: groupedVars.public,
         } satisfies Omit<KibaoConfig["kibao"], "openbao"> & {
           openbao: {
             public: KibaoCredentials;
@@ -111,7 +105,7 @@ export default defineNuxtModule<KibaoConfig["kibao"]>({
       kibao: {
         ...resolved,
         baoServerURL: resolved.baoServerURL,
-        vars: runtimeVars,
+        vars: allVars,
       },
     });
 

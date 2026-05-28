@@ -166,7 +166,7 @@ export async function getKibaoHeaders(credentials: KibaoCredentials) {
   return { headers };
 }
 
-export async function autoEnv(access: SmartString<KibaoAccess> = "public") {
+export async function autoEnv(access: SmartString<KibaoAccess> = "public", updateEnv = true) {
   const baoConfig = reconsileConfig(null, null);
   if (!baoConfig.baoServerURL) {
     throw new Error("Could not find openbao serverurl", {
@@ -185,7 +185,9 @@ export async function autoEnv(access: SmartString<KibaoAccess> = "public") {
     access,
   );
 
-  setEnv(baoVars);
+  if (updateEnv) {
+    setEnv(baoVars);
+  }
 
   return baoVars;
 }

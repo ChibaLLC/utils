@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.3
+
+### Patch Changes
+
+- fix: backend vars get public as well
+
 ## 1.1.2
 
 ### Patch Changes
