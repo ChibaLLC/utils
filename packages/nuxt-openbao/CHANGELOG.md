@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.1.5
+
+### Patch Changes
+
+- b79d3db: fix: sync OpenBao variables into Nuxt runtime config and refresh them during Nitro runtime requests
+
+  Adds production and Cloudflare Worker coverage for build-time module visibility, runtime availability, and changed OpenBao values after the app is already running.
+
+- c57c43e: chore: improve config on server
+
 ## 1.1.4
 
 ### Patch Changes
