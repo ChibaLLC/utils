@@ -47,7 +47,7 @@ export function createTypeTemplates(vars: KibaoVarsByAccess) {
     }
     `;
 
-    const createNitroTemplate = () => /* typescript */ `
+  const createNitroTemplate = () => /* typescript */ `
     ${createVarsType("ParsedKibaoNitroConfig", renderedAllVars)}
 
     declare global {
@@ -60,7 +60,7 @@ export function createTypeTemplates(vars: KibaoVarsByAccess) {
 
     declare module "h3" {
       interface H3EventContext {
-        vars: {
+        vars?: {
           readonly data: ParsedKibaoNitroConfig["vars"];
           refresh: () => Promise<void>;
         };
@@ -75,13 +75,19 @@ export function createTypeTemplates(vars: KibaoVarsByAccess) {
 
     declare module "#app" {
       interface NuxtApp {
-        $vars: ParsedKibaoNuxtConfig["vars"];
+        $vars?: {
+          readonly data: ParsedKibaoNuxtConfig["vars"];
+          refresh: () => Promise<void>;
+        };
       }
     }
 
     declare module "vue" {
       interface ComponentCustomProperties {
-        $vars: ParsedKibaoNuxtConfig["vars"];
+        $vars?: {
+          readonly data: ParsedKibaoNuxtConfig["vars"];
+          refresh: () => Promise<void>;
+        };
       }
     }
 

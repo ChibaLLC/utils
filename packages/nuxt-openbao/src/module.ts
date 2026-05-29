@@ -15,9 +15,11 @@ import { consola } from "consola";
 import { createTypeTemplates, printOpenBaoConfig } from "./utils";
 import { getAllVars, type KibaoCredentials } from "./runtime/utils";
 
-export type PublicKibaoConfig = Omit<KibaoConfig["kibao"], "openbao"> & {
-  openbao: {
-    public: KibaoCredentials;
+export type PublicKibaoConfig = {
+  kibao: Omit<KibaoConfig["kibao"], "openbao"> & {
+    openbao: {
+      public: KibaoCredentials;
+    };
   };
 };
 
@@ -111,14 +113,23 @@ export default defineNuxtModule<KibaoConfig["kibao"]>({
 
     addPlugin({
       src: resolver.resolve("./runtime/app/plugin"),
-      order: 0,
+      order: -20,
+      mode: "all",
     });
 
-    addServerPlugin(resolver.resolve("./runtime/server/plugins/plugin"));
+    // it's not a spelling mistake, they are lexographically ordered
+    addServerHandler({
+      handler: resolver.resolve("./runtime/server/middleware/0.avars"),
+      middleware: true,
+    });
+
+    // it's not a spelling mistake, they are lexographically ordered
+    addServerPlugin(resolver.resolve("./runtime/server/plugins/0.aplugin"));
 
     addServerHandler({
       handler: resolver.resolve("./runtime/server/routes/bao-proxy"),
       route: "/bao-proxy/**",
+      lazy: false,
     });
   },
 });
