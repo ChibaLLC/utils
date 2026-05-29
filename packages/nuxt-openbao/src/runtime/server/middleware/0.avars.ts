@@ -3,9 +3,9 @@ import { injectVars } from "../utils";
 import { consola } from "consola";
 
 const console = consola.withTag("kibao").withTag("0.vars.ts");
-export default defineEventHandler((event) => {
+export default defineEventHandler(async (event) => {
   try {
-    injectVars({ event });
+    await injectVars({ event });
   } catch (e) {
     console.error(e);
   }

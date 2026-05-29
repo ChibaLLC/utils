@@ -9,16 +9,16 @@ export default defineLazyEventHandler(() => {
 
   return defineEventHandler(async (event) => {
     if (!kibao.disabled) {
-      if (!kibao.baoServerURL) {
+      if (!kibao.server?.bao) {
         throw createError({
           statusCode: 500,
-          statusMessage: "Missing 'baoServerURL' runtime configuration",
+          statusMessage: "Missing 'server.bao' runtime configuration",
         });
       }
 
       const start = performance.now();
 
-      const target = joinURL(kibao.baoServerURL, event.path.replace("/bao-proxy", ""));
+      const target = joinURL(kibao.server.bao, event.path.replace("/bao-proxy", ""));
 
       return proxyRequest(event, target, {
         async onResponse(_, response) {

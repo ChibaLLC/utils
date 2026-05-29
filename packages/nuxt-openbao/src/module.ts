@@ -3,13 +3,12 @@ import {
   addPlugin,
   createResolver,
   addServerHandler,
-  addServerPlugin,
   updateRuntimeConfig,
   addImportsSources,
   addServerImports,
 } from "@nuxt/kit";
 import type { KibaoConfig } from "./types";
-import { reconsileConfig, setEnv } from "./runtime/env";
+import { applyRuntimeConfigEnv, reconsileConfig, setEnv } from "./runtime/env";
 import { entries, isEmpty } from "@chiballc/utils";
 import { consola } from "consola";
 import { createTypeTemplates, printOpenBaoConfig } from "./utils";
@@ -83,6 +82,7 @@ export default defineNuxtModule<KibaoConfig["kibao"]>({
       }
 
       setEnv({ vars });
+      applyRuntimeConfigEnv(vars, nuxt.options.runtimeConfig);
       Object.assign(allVars, vars);
     }
 
@@ -92,11 +92,10 @@ export default defineNuxtModule<KibaoConfig["kibao"]>({
       public: {
         kibao: {
           disabled: resolved.disabled,
-          baoServerURL: resolved.baoServerURL,
+          server: resolved.server,
           openbao: {
             public: groupedVars.public || ({} as any),
           },
-          serverURL: resolved.serverURL,
           vars: groupedVars.public,
         } satisfies Omit<KibaoConfig["kibao"], "openbao"> & {
           openbao: {
@@ -106,7 +105,6 @@ export default defineNuxtModule<KibaoConfig["kibao"]>({
       },
       kibao: {
         ...resolved,
-        baoServerURL: resolved.baoServerURL,
         vars: allVars,
       },
     });
@@ -123,8 +121,11 @@ export default defineNuxtModule<KibaoConfig["kibao"]>({
       middleware: true,
     });
 
-    // it's not a spelling mistake, they are lexographically ordered
-    addServerPlugin(resolver.resolve("./runtime/server/plugins/0.aplugin"));
+    const serverPlugin = resolver.resolve("./runtime/server/plugins/0.aplugin");
+    nuxt.hook("nitro:config", (nitroConfig) => {
+      nitroConfig.plugins = nitroConfig.plugins || [];
+      nitroConfig.plugins.unshift(serverPlugin);
+    });
 
     addServerHandler({
       handler: resolver.resolve("./runtime/server/routes/bao-proxy"),

@@ -8,12 +8,7 @@ import {
   getKibaoToken,
   getSecrets,
 } from "../src/runtime/utils";
-import {
-  crawlVarsFromEnv,
-  getEnvSereverURL,
-  reconsileConfig,
-  setEnv,
-} from "../src/runtime/env";
+import { applyRuntimeConfigEnv, crawlVarsFromEnv, getEnvSereverURL, reconsileConfig, setEnv } from "../src/runtime/env";
 import { createMockOpenBaoServer, type MockOpenBaoServer } from "./helpers/openbao";
 
 describe("OpenBao runtime helpers", () => {
@@ -172,12 +167,34 @@ describe("OpenBao runtime helpers", () => {
       public: {
         PUBLIC_FROM_BAO: "public-value",
         SHARED_FROM_BAO: "public-shared",
+        NUXT_PUBLIC_OBSERVER_VALUE: "observer-public-value",
       },
       private: {
         PRIVATE_FROM_BAO: "private-value",
         SHARED_FROM_BAO: "private-shared",
+        NUXT_OBSERVER_SECRET: "observer-private-secret",
       },
     });
+  });
+
+  it("loads variables without mutating frozen runtime config credentials", async () => {
+    const publicConfig = Object.freeze({
+      baseURL: openbao.baseURL,
+      location: Object.freeze({
+        app: "demo",
+        environment: "test",
+      }),
+      token: `${PUBLIC_TOKEN_ATTESTATION}public-token`,
+    });
+
+    const vars = await getAllVars({
+      public: publicConfig,
+    });
+
+    expect(vars.public).toMatchObject({
+      PUBLIC_FROM_BAO: "public-value",
+    });
+    expect(publicConfig.baseURL).toBe(openbao.baseURL);
   });
 });
 
@@ -196,25 +213,37 @@ describe("Kibao environment helpers", () => {
   });
 
   it("reads the server URL from supported environment variables", () => {
-    process.env.NUXT_KIBAO_BAO_SERVER_URL = " http://openbao.local ";
+    process.env.NUXT_KIBAO_SERVER_BAO = " http://openbao.local ";
     expect(getEnvSereverURL()).toBe("http://openbao.local");
   });
 
   it("crawls Nuxt-prefixed Kibao variables from process.env", () => {
-    process.env.NUXT_KIBAO_BAO_SERVER_URL = "http://openbao.local";
+    process.env.NUXT_KIBAO_SERVER_BAO = "http://openbao.local";
     process.env.NUXT_KIBAO_OPENBAO_PUBLIC_TOKEN = `${PUBLIC_TOKEN_ATTESTATION}env-token`;
 
     expect(crawlVarsFromEnv()).toMatchObject({
-      NUXT_KIBAO_BAO_SERVER_URL: "http://openbao.local",
+      NUXT_KIBAO_SERVER_BAO: "http://openbao.local",
       NUXT_KIBAO_OPENBAO_PUBLIC_TOKEN: `${PUBLIC_TOKEN_ATTESTATION}env-token`,
+    });
+  });
+
+  it("normalizes Kibao and OpenBao environment aliases to Nuxt runtime keys", () => {
+    process.env.KIBAO_SERVER_BAO = "http://openbao.local";
+    process.env.OPENBAO_PUBLIC_TOKEN = `${PUBLIC_TOKEN_ATTESTATION}alias-token`;
+
+    expect(crawlVarsFromEnv()).toMatchObject({
+      NUXT_KIBAO_SERVER_BAO: "http://openbao.local",
+      NUXT_KIBAO_OPENBAO_PUBLIC_TOKEN: `${PUBLIC_TOKEN_ATTESTATION}alias-token`,
     });
   });
 
   it("reconciles module options, runtime config, and public runtime config", () => {
     const config = reconsileConfig(
       {
-        baoServerURL: "http://option-openbao.local",
-        serverURL: "http://option-app.local",
+        server: {
+          bao: "http://option-openbao.local",
+          base: "http://option-app.local",
+        },
         openbao: {
           public: {
             baseURL: "http://option-openbao.local",
@@ -235,7 +264,9 @@ describe("Kibao environment helpers", () => {
     );
 
     expect(config).toMatchObject({
-      baoServerURL: "http://option-openbao.local",
+      server: {
+        bao: "http://option-openbao.local",
+      },
       vars: {
         FROM_PUBLIC_CONFIG: "yes",
       },
@@ -248,13 +279,15 @@ describe("Kibao environment helpers", () => {
   });
 
   it("fills module option locations from env without overwriting explicit options", () => {
-    process.env.NUXT_KIBAO_BAO_SERVER_URL = "http://env-openbao.local";
+    process.env.NUXT_KIBAO_SERVER_BAO = "http://env-openbao.local";
     process.env.NUXT_KIBAO_OPENBAO_PUBLIC_TOKEN = `${PUBLIC_TOKEN_ATTESTATION}env-token`;
     process.env.NUXT_KIBAO_OPENBAO_PUBLIC_LOCATION_ENVIRONMENT = "staging";
 
     const config = reconsileConfig(
       {
-        serverURL: "http://option-app.local",
+        server: {
+          base: "http://option-app.local",
+        },
         openbao: {
           public: {
             location: {
@@ -267,8 +300,10 @@ describe("Kibao environment helpers", () => {
     );
 
     expect(config).toMatchObject({
-      baoServerURL: "http://env-openbao.local",
-      serverURL: "http://option-app.local",
+      server: {
+        bao: "http://env-openbao.local",
+        base: "http://option-app.local",
+      },
       openbao: {
         public: {
           token: `${PUBLIC_TOKEN_ATTESTATION}env-token`,
@@ -288,7 +323,9 @@ describe("Kibao environment helpers", () => {
 
     const config = reconsileConfig(null, {
       kibao: {
-        serverURL: "http://runtime-app.local",
+        server: {
+          base: "http://runtime-app.local",
+        },
         openbao: {
           private: {
             location: {
@@ -301,7 +338,9 @@ describe("Kibao environment helpers", () => {
     } as any);
 
     expect(config).toMatchObject({
-      serverURL: "http://runtime-app.local",
+      server: {
+        base: "http://runtime-app.local",
+      },
       openbao: {
         private: {
           bao: {
@@ -326,5 +365,54 @@ describe("Kibao environment helpers", () => {
 
     expect(env.TEST_SET_ENV).toBe("set-by-kibao");
     expect(process.env.TEST_SET_ENV).toBe("set-by-kibao");
+  });
+
+  it("applies pulled Nuxt env variables to existing runtime config keys", () => {
+    const runtimeConfig = {
+      apiSecret: "",
+      public: {
+        apiBase: "",
+        nested: {
+          value: "",
+        },
+      },
+    } as any;
+
+    applyRuntimeConfigEnv(
+      {
+        NUXT_API_SECRET: "private-secret",
+        NUXT_PUBLIC_API_BASE: "https://api.example.com",
+        NUXT_PUBLIC_NESTED_VALUE: "nested-value",
+        NUXT_MISSING_VALUE: "ignored",
+      },
+      runtimeConfig,
+    );
+
+    expect(runtimeConfig).toMatchObject({
+      apiSecret: "private-secret",
+      public: {
+        apiBase: "https://api.example.com",
+        nested: {
+          value: "nested-value",
+        },
+      },
+    });
+    expect(runtimeConfig.missingValue).toBeUndefined();
+  });
+
+  it("does not require Nuxt runtime config when applying env variables", () => {
+    expect(() => applyRuntimeConfigEnv({ NUXT_API_SECRET: "private-secret" }, null)).not.toThrow();
+    expect(() => applyRuntimeConfigEnv({ NUXT_API_SECRET: "private-secret" })).not.toThrow();
+  });
+
+  it("ignores read-only runtime config keys without throwing", () => {
+    const runtimeConfig = Object.freeze({
+      apiSecret: "",
+    });
+
+    expect(() => {
+      applyRuntimeConfigEnv({ NUXT_API_SECRET: "private-secret" }, runtimeConfig);
+    }).not.toThrow();
+    expect(runtimeConfig.apiSecret).toBe("");
   });
 });

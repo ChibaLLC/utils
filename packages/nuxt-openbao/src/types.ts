@@ -13,7 +13,10 @@ export interface KibaoConfig {
     disabled?: boolean;
     openbao: OpenBaoOptions;
     vars?: KibaoVars;
-    baoServerURL?: string;
-    serverURL?: string;
+    server?: {
+      bao?: string,
+      /** The server URL */
+      base?: string
+    }
   };
 }

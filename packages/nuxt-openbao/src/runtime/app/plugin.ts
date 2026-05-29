@@ -36,7 +36,7 @@ export default defineNuxtPlugin({
       console.info("Fetching public vars");
       const _vars = await getSecrets(
         {
-          baseURL: joinURL(config.serverURL || "", "/bao-proxy"),
+          baseURL: joinURL(config.server?.bao || "", "/bao-proxy"),
           token: config.openbao.public.token as any,
           location: config.openbao.public?.location as any,
         },

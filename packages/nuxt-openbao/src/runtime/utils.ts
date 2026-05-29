@@ -168,15 +168,15 @@ export async function getKibaoHeaders(credentials: KibaoCredentials) {
 
 export async function autoEnv(access: SmartString<KibaoAccess> = "public", updateEnv = true) {
   const baoConfig = reconsileConfig(null, null);
-  if (!baoConfig.baoServerURL) {
-    throw new Error("Could not find openbao serverurl", {
+  if (!baoConfig.server?.bao) {
+    throw new Error("Could not find openbao server.bao", {
       cause: baoConfig,
     });
   }
 
   const baoVars = await getSecrets(
     {
-      baseURL: baoConfig.baoServerURL,
+      baseURL: baoConfig.server.bao,
       location: baoConfig.openbao[access]?.location as Location,
       bao: baoConfig.openbao[access]?.bao as any,
       namespace: baoConfig.openbao[access]?.namespace,
@@ -199,13 +199,13 @@ export async function getAllVars(openbao: OpenBaoOptions) {
       continue;
     }
 
-    config.baseURL = getEnvSereverURL() || config.baseURL;
-    if (!config.baseURL) {
+    const baseURL = getEnvSereverURL() || config.baseURL;
+    if (!baseURL) {
       console.fatal("We could not determine the location of you openbao instance");
       continue;
     }
 
-    const { vars } = await getSecrets(config, access);
+    const { vars } = await getSecrets({ ...config, baseURL }, access);
 
     _vars[access] = vars;
   }

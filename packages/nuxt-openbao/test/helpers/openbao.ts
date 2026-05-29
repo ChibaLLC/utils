@@ -11,11 +11,33 @@ export type MockOpenBaoRequest = {
 export type MockOpenBaoServer = {
   baseURL: string;
   requests: MockOpenBaoRequest[];
+  setSecrets: (secrets: Partial<MockOpenBaoSecrets>) => void;
   close: () => Promise<void>;
+};
+
+export type MockOpenBaoSecrets = {
+  public: Record<string, string>;
+  private: Record<string, string>;
+  customPublic: Record<string, string>;
 };
 
 export async function createMockOpenBaoServer(): Promise<MockOpenBaoServer> {
   const requests: MockOpenBaoRequest[] = [];
+  const secrets: MockOpenBaoSecrets = {
+    public: {
+      PUBLIC_FROM_BAO: "public-value",
+      SHARED_FROM_BAO: "public-shared",
+      NUXT_PUBLIC_OBSERVER_VALUE: "observer-public-value",
+    },
+    private: {
+      PRIVATE_FROM_BAO: "private-value",
+      SHARED_FROM_BAO: "private-shared",
+      NUXT_OBSERVER_SECRET: "observer-private-secret",
+    },
+    customPublic: {
+      CUSTOM_PUBLIC_FROM_BAO: "custom-public-value",
+    },
+  };
 
   const server = createServer(async (request, response) => {
     const path = request.url || "/";
@@ -39,10 +61,7 @@ export async function createMockOpenBaoServer(): Promise<MockOpenBaoServer> {
     if (request.method === "GET" && path === "/v1/demo/data/test/public") {
       return sendJson(response, {
         data: {
-          data: {
-            PUBLIC_FROM_BAO: "public-value",
-            SHARED_FROM_BAO: "public-shared",
-          },
+          data: secrets.public,
         },
       });
     }
@@ -50,10 +69,7 @@ export async function createMockOpenBaoServer(): Promise<MockOpenBaoServer> {
     if (request.method === "GET" && path === "/v1/demo/data/test/private") {
       return sendJson(response, {
         data: {
-          data: {
-            PRIVATE_FROM_BAO: "private-value",
-            SHARED_FROM_BAO: "private-shared",
-          },
+          data: secrets.private,
         },
       });
     }
@@ -61,9 +77,7 @@ export async function createMockOpenBaoServer(): Promise<MockOpenBaoServer> {
     if (request.method === "GET" && path === "/v1/custom/public") {
       return sendJson(response, {
         data: {
-          data: {
-            CUSTOM_PUBLIC_FROM_BAO: "custom-public-value",
-          },
+          data: secrets.customPublic,
         },
       });
     }
@@ -83,6 +97,11 @@ export async function createMockOpenBaoServer(): Promise<MockOpenBaoServer> {
   return {
     baseURL: `http://127.0.0.1:${address.port}`,
     requests,
+    setSecrets(next) {
+      Object.assign(secrets.public, next.public);
+      Object.assign(secrets.private, next.private);
+      Object.assign(secrets.customPublic, next.customPublic);
+    },
     close: () =>
       new Promise<void>((resolve, reject) => {
         server.close((error) => {

@@ -1,13 +1,11 @@
 import MyModule from "../../../src/module";
 import { PUBLIC_TOKEN_ATTESTATION } from "../../../src/runtime/utils";
-import EnvObserverModule from "./modules/env-observer";
+import EnvObserverModule from "../basic/modules/env-observer";
 
 const mockOpenBaoURL = process.env.MOCK_OPENBAO_URL || "";
-const siteURL = process.env.NUXT_PUBLIC_SITE_URL || "";
 
 export default defineNuxtConfig({
   modules: [MyModule, EnvObserverModule],
-  pages: true,
   runtimeConfig: {
     observerSecret: "",
     public: {
@@ -15,10 +13,12 @@ export default defineNuxtConfig({
       observerModule: {},
     },
   },
+  nitro: {
+    preset: "cloudflare_module",
+  },
   kibao: {
     server: {
       bao: mockOpenBaoURL,
-      base: siteURL,
     },
     openbao: {
       public: {

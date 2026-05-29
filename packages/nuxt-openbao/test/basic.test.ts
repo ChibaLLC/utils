@@ -16,15 +16,29 @@ afterAll(async () => {
 describe("kibao nuxt runtime", async () => {
   await setup({
     rootDir: fileURLToPath(new URL("./fixtures/basic", import.meta.url)),
+    build: true,
+    dev: false,
     setupTimeout: 180_000,
   });
 
-  it("renders public OpenBao variables through the Nuxt plugin", async () => {
-    const html = await $fetch("/");
+  it("exposes public OpenBao variables in the Nuxt runtime", async () => {
+    const payload = await $fetch<{
+      vars: Record<string, string>;
+      processEnv: Record<string, string>;
+      runtimeConfig: {
+        observerSecret: string;
+        public: {
+          observerValue: string;
+          observerModule: Record<string, string>;
+        };
+      };
+    }>("/api/vars");
 
-    expect(html).toContain("Kibao fixture");
-    expect(html).toContain("public-value");
-    expect(html).toContain("public-shared");
+    expect(payload.processEnv).toMatchObject({
+      PUBLIC_FROM_BAO: "public-value",
+      SHARED_FROM_BAO: "private-shared",
+    });
+    expect(payload.runtimeConfig.public.observerValue).toBe("observer-public-value");
   });
 
   it("exposes private OpenBao variables on Nitro event context and process.env", async () => {
@@ -64,5 +78,136 @@ describe("kibao nuxt runtime", async () => {
         }),
       ]),
     );
+  });
+
+  it("makes OpenBao variables available to later Nuxt modules during build-time setup", async () => {
+    const payload = await $fetch<{
+      runtimeConfig: {
+        observerSecret: string;
+        public: {
+          observerValue: string;
+          observerModule: Record<string, string>;
+        };
+      };
+      processEnv: Record<string, string>;
+    }>("/api/vars");
+
+    expect(payload.processEnv).toMatchObject({
+      NUXT_PUBLIC_OBSERVER_VALUE: "observer-public-value",
+      NUXT_OBSERVER_SECRET: "observer-private-secret",
+    });
+    expect(payload.runtimeConfig).toMatchObject({
+      observerSecret: "observer-private-secret",
+      public: {
+        observerValue: "observer-public-value",
+        observerModule: {
+          processPublic: "observer-public-value",
+          processPrivate: "observer-private-secret",
+          runtimePublic: "observer-public-value",
+          runtimePrivate: "observer-private-secret",
+        },
+      },
+    });
+  });
+
+  it("makes OpenBao variables available to later Nitro plugins at runtime", async () => {
+    const payload = await $fetch<{
+      observerRuntime: {
+        startup: Record<string, string>;
+        request: Record<string, string>;
+      };
+    }>("/api/vars");
+
+    expect(payload.observerRuntime.startup).toMatchObject({
+      processPublic: "observer-public-value",
+      processPrivate: "observer-private-secret",
+      runtimePublic: "observer-public-value",
+      runtimePrivate: "observer-private-secret",
+    });
+    expect(payload.observerRuntime.request).toMatchObject({
+      processPublic: "observer-public-value",
+      processPrivate: "observer-private-secret",
+      runtimePublic: "observer-public-value",
+      runtimePrivate: "observer-private-secret",
+    });
+  });
+
+  it("refreshes OpenBao variables in a running production server when secrets change", async () => {
+    openbao.setSecrets({
+      public: {
+        PUBLIC_FROM_BAO: "public-value-updated",
+        SHARED_FROM_BAO: "public-shared-updated",
+        NUXT_PUBLIC_OBSERVER_VALUE: "observer-public-value-updated",
+      },
+      private: {
+        PRIVATE_FROM_BAO: "private-value-updated",
+        SHARED_FROM_BAO: "private-shared-updated",
+        NUXT_OBSERVER_SECRET: "observer-private-secret-updated",
+      },
+    });
+
+    const payload = await $fetch<{
+      vars: Record<string, string>;
+      runtimeConfig: {
+        observerSecret: string;
+        public: {
+          observerValue: string;
+        };
+      };
+      observerRuntime: {
+        startup: Record<string, string>;
+        request: Record<string, string>;
+      };
+      processEnv: Record<string, string>;
+    }>("/api/vars");
+
+    expect(payload.vars).toMatchObject({
+      PUBLIC_FROM_BAO: "public-value-updated",
+      PRIVATE_FROM_BAO: "private-value-updated",
+      SHARED_FROM_BAO: "private-shared-updated",
+    });
+    expect(payload.processEnv).toMatchObject({
+      PUBLIC_FROM_BAO: "public-value-updated",
+      PRIVATE_FROM_BAO: "private-value-updated",
+      NUXT_PUBLIC_OBSERVER_VALUE: "observer-public-value-updated",
+      NUXT_OBSERVER_SECRET: "observer-private-secret-updated",
+    });
+    expect(payload.runtimeConfig).toMatchObject({
+      observerSecret: "observer-private-secret-updated",
+      public: {
+        observerValue: "observer-public-value-updated",
+      },
+    });
+    expect(payload.observerRuntime.startup).toMatchObject({
+      runtimePublic: "observer-public-value",
+      runtimePrivate: "observer-private-secret",
+    });
+    const observerPayload = await $fetch<{
+      vars: Record<string, string>;
+      processEnv: Record<string, string>;
+      runtimeConfig: {
+        observerSecret: string;
+        public: {
+          observerValue: string;
+        };
+      };
+    }>("/api/observer-runtime");
+
+    expect(observerPayload.vars).toMatchObject({
+      PUBLIC_FROM_BAO: "public-value-updated",
+      PRIVATE_FROM_BAO: "private-value-updated",
+    });
+    expect(observerPayload.processEnv).toMatchObject({
+      PUBLIC_FROM_BAO: "public-value-updated",
+      PRIVATE_FROM_BAO: "private-value-updated",
+      NUXT_PUBLIC_OBSERVER_VALUE: "observer-public-value-updated",
+      NUXT_OBSERVER_SECRET: "observer-private-secret-updated",
+    });
+    expect(observerPayload.runtimeConfig).toMatchObject({
+      observerSecret: "observer-private-secret-updated",
+      public: {
+        observerValue: "observer-public-value-updated",
+      },
+    });
   });
 });

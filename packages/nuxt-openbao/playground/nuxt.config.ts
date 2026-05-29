@@ -6,8 +6,10 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
   compatibilityDate: "latest",
   kibao: {
-    serverURL: process.env.NUXT_PUBLIC_SITE_URL || "http://localhost:3000",
-    baoServerURL: process.env.NUXT_KIBAO_BAO_SERVER_URL || "http://127.0.0.1:8200",
+    server: {
+      base: process.env.NUXT_PUBLIC_SITE_URL || "http://localhost:3000",
+      bao: process.env.NUXT_KIBAO_SERVER_BAO || "http://127.0.0.1:8200",
+    },
     openbao: {
       public: {
         location: {
