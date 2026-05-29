@@ -8,6 +8,7 @@ assertFile("dist/kibao/dist/module.mjs");
 assertFile("dist/kibao/dist/types.d.mts");
 assertFile("dist/kibao/dist/runtime/index.js");
 assertFile("dist/kibao/dist/runtime/index.d.ts");
+assertFile("dist/kibao/dist/package.json");
 
 const moduleSource = readFileSync(resolve(root, "dist/kibao/dist/module.mjs"), "utf8");
 assert(

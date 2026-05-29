@@ -1,9 +1,11 @@
 import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = dirname(fileURLToPath(new URL("../package.json", import.meta.url)));
 const source = resolve(root, "packages/nuxt-openbao/dist");
+const packageJsonSrc = resolve(root, "packages/nuxt-openbao/package.json");
 const target = resolve(root, "dist/kibao");
 const output = resolve(target, "dist");
 
@@ -14,6 +16,7 @@ if (!existsSync(source)) {
 rmSync(target, { force: true, recursive: true });
 mkdirSync(output, { recursive: true });
 cpSync(source, output, { recursive: true });
+cpSync(packageJsonSrc, join(output, "package.json"));
 
 writeFileSync(
   resolve(output, "runtime/index.js"),

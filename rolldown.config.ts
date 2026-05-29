@@ -1,11 +1,13 @@
 import { defineConfig } from "rolldown";
 import { dts } from "rolldown-plugin-dts";
 
+const plugins = [dts()];
+
 export default defineConfig([
   // --- Root Utils ---
   {
     input: "src/index.ts",
-    plugins: [dts()],
+    plugins,
     external: [/node:.*/, "consola", "std-env"],
     output: {
       dir: "dist",
@@ -33,7 +35,7 @@ export default defineConfig([
   // --- Service Workers Runtime ---
   {
     input: "packages/service-workers/src/index.ts",
-    plugins: [dts()],
+    plugins,
     external: [/node:.*/, "consola", "std-env", "ulid"],
     output: {
       dir: "dist/service-workers",
@@ -61,7 +63,7 @@ export default defineConfig([
   // --- Service Workers Vite Plugin ---
   {
     input: "packages/service-workers/src/plugin.ts",
-    plugins: [dts()],
+    plugins,
     external: [/node:.*/, "vite", "consola"],
     output: {
       dir: "dist/service-workers",
@@ -89,7 +91,7 @@ export default defineConfig([
   // --- Web Workers Runtime ---
   {
     input: "packages/web-workers/src/index.ts",
-    plugins: [dts()],
+    plugins,
     external: [/node:.*/, "consola", "std-env", "ulid"],
     output: {
       dir: "dist/web-workers",
