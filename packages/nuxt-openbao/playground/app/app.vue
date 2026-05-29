@@ -19,6 +19,10 @@
           <span>Refresh</span>
           <strong>{{ refreshState }}</strong>
         </div>
+        <div>
+          <span>Version</span>
+          <strong>{{ version || "Unknown" }}</strong>
+        </div>
       </div>
 
       <button type="button" :disabled="!hasProvider || refreshState === 'refreshing'" @click="refreshVars">
@@ -58,6 +62,22 @@
         </div>
       </div>
     </section>
+
+    <section class="panel">
+      <header>
+        <h2>Server Variables</h2>
+        <p>{{ serverEnvKeys?.length }} variables on the server</p>
+      </header>
+      <div v-if="serverEnvKeys?.length" class="table">
+        <div v-for="row in serverEnvKeys" :key="row" class="row">
+          <code>{{ row }}</code>
+        </div>
+      </div>
+
+      <div v-else-if="serverEnvError" class="empty">
+        <code>{{ serverEnvError }}</code>
+      </div>
+    </section>
   </main>
 </template>
 
@@ -65,14 +85,10 @@
 import kibaoRuntime, { getAllVars, reconsileConfig } from "@chiballc/utils/kibao/runtime";
 import { getKibaoHeaders } from "@chiballc/utils/kibao/runtime/utils";
 import { setEnv } from "@chiballc/utils/kibao/runtime/env";
-
-type VarsProvider = {
-  data: Record<string, string>;
-  refresh: () => Promise<void>;
-};
+import { version } from "@chiballc/utils/kibao/package.json";
 
 const nuxtApp = useNuxtApp();
-const varsProvider = computed(() => (nuxtApp.$vars as unknown as VarsProvider | undefined) || null);
+const varsProvider = computed(() => nuxtApp.$vars || null);
 const refreshState = ref<"idle" | "refreshing" | "done" | "error">("idle");
 
 const hasProvider = computed(() => Boolean(varsProvider.value));
@@ -109,10 +125,13 @@ async function refreshVars() {
   try {
     await varsProvider.value.refresh();
     refreshState.value = "done";
-  } catch {
+  } catch (e) {
+    console.error(e)
     refreshState.value = "error";
   }
 }
+
+const { data: serverEnvKeys, error: serverEnvError } = useFetch("/api/vars");
 </script>
 
 <style>
@@ -120,7 +139,13 @@ async function refreshVars() {
   color: #182018;
   background: #eef3ed;
   font-family:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
 }
 
 body {
@@ -166,7 +191,7 @@ h2 {
 
 h1 {
   margin-top: 6px;
-  font-size: clamp(2rem, 6vw, 4.8rem);
+  font-size: clamp(2rem, 6vw, 3.5rem);
 }
 
 h2 {

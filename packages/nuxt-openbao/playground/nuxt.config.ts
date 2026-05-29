@@ -1,4 +1,3 @@
-const kibaoEnabled = process.env.NUXT_KIBAO_PLAYGROUND === "false";
 const app = process.env.NUXT_KIBAO_OPENBAO_PUBLIC_LOCATION_APP || "demo";
 const environment = process.env.NUXT_KIBAO_OPENBAO_PUBLIC_LOCATION_ENVIRONMENT || "development";
 

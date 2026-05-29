@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@chiballc/utils": "workspace:*",
-    "nuxt": "^4.4.6"
+    "nuxt": "^4.4.6",
+    "ulid": "^3.0.2"
   }
 }
