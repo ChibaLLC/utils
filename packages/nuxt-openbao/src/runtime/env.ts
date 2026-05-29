@@ -100,8 +100,6 @@ export function reconsileConfig<T extends RuntimeConfig>(
       console.warn(`Unknown environment variable ${key} with value ${value} is not applied to kibao configuration`);
     }
   }
-
-  console.success("Finished parsing openbao env variables");
   return merged as unknown as KibaoConfig["kibao"];
 }
 
