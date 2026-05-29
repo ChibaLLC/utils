@@ -173,6 +173,11 @@ describe("OpenBao runtime helpers", () => {
         PRIVATE_FROM_BAO: "private-value",
         SHARED_FROM_BAO: "private-shared",
         NUXT_OBSERVER_SECRET: "observer-private-secret",
+        GOOGLE_APPLICATION_CREDENTIALS: JSON.stringify({
+          project_id: "observer-project",
+          client_email: "observer@example.com",
+          private_key: "observer-private-key",
+        }),
       },
     });
   });

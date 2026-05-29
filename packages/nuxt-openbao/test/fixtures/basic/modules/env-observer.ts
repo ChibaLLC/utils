@@ -19,5 +19,9 @@ export default defineNuxtModule({
       route: "/api/observer-runtime",
       handler: resolver.resolve("../observer/runtime-vars"),
     });
+    addServerHandler({
+      route: "/api/observer-refresh",
+      handler: resolver.resolve("../observer/runtime-refresh"),
+    });
   },
 });

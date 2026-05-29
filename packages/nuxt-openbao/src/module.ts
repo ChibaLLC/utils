@@ -115,12 +115,6 @@ export default defineNuxtModule<KibaoConfig["kibao"]>({
       mode: "all",
     });
 
-    // it's not a spelling mistake, they are lexographically ordered
-    addServerHandler({
-      handler: resolver.resolve("./runtime/server/middleware/0.avars"),
-      middleware: true,
-    });
-
     const serverPlugin = resolver.resolve("./runtime/server/plugins/0.aplugin");
     nuxt.hook("nitro:config", (nitroConfig) => {
       nitroConfig.plugins = nitroConfig.plugins || [];

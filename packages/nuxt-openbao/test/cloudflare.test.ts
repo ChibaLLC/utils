@@ -56,11 +56,17 @@ describe("kibao cloudflare runtime", () => {
       NUXT_PUBLIC_OBSERVER_VALUE: "observer-public-value",
       NUXT_OBSERVER_SECRET: "observer-private-secret",
     });
+    expect(JSON.parse(payload.processEnv.GOOGLE_APPLICATION_CREDENTIALS)).toMatchObject({
+      project_id: "observer-project",
+    });
     expect(payload.runtimeConfig).toMatchObject({
       observerSecret: "observer-private-secret",
       public: {
         observerValue: "observer-public-value",
       },
+    });
+    expect(JSON.parse(payload.observerRuntime.request.processGoogleCredentials)).toMatchObject({
+      project_id: "observer-project",
     });
   });
 
@@ -76,7 +82,7 @@ describe("kibao cloudflare runtime", () => {
       },
     });
 
-    const payload = await fetchJson("/api/observer-runtime");
+    const payload = await fetchJson("/api/observer-refresh");
 
     expect(payload.vars).toMatchObject({
       PUBLIC_FROM_BAO: "cloudflare-public-updated",

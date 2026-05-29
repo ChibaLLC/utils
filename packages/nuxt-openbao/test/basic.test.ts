@@ -130,6 +130,10 @@ describe("kibao nuxt runtime", async () => {
       runtimePublic: "observer-public-value",
       runtimePrivate: "observer-private-secret",
     });
+    expect(payload.observerRuntime.request.processGoogleCredentials).toBeTypeOf("string");
+    expect(JSON.parse(payload.observerRuntime.request.processGoogleCredentials!)).toMatchObject({
+      project_id: "observer-project",
+    });
   });
 
   it("refreshes OpenBao variables in a running production server when secrets change", async () => {
@@ -162,20 +166,20 @@ describe("kibao nuxt runtime", async () => {
     }>("/api/vars");
 
     expect(payload.vars).toMatchObject({
-      PUBLIC_FROM_BAO: "public-value-updated",
-      PRIVATE_FROM_BAO: "private-value-updated",
-      SHARED_FROM_BAO: "private-shared-updated",
+      PUBLIC_FROM_BAO: "public-value",
+      PRIVATE_FROM_BAO: "private-value",
+      SHARED_FROM_BAO: "private-shared",
     });
     expect(payload.processEnv).toMatchObject({
-      PUBLIC_FROM_BAO: "public-value-updated",
-      PRIVATE_FROM_BAO: "private-value-updated",
-      NUXT_PUBLIC_OBSERVER_VALUE: "observer-public-value-updated",
-      NUXT_OBSERVER_SECRET: "observer-private-secret-updated",
+      PUBLIC_FROM_BAO: "public-value",
+      PRIVATE_FROM_BAO: "private-value",
+      NUXT_PUBLIC_OBSERVER_VALUE: "observer-public-value",
+      NUXT_OBSERVER_SECRET: "observer-private-secret",
     });
     expect(payload.runtimeConfig).toMatchObject({
-      observerSecret: "observer-private-secret-updated",
+      observerSecret: "observer-private-secret",
       public: {
-        observerValue: "observer-public-value-updated",
+        observerValue: "observer-public-value",
       },
     });
     expect(payload.observerRuntime.startup).toMatchObject({
@@ -191,7 +195,7 @@ describe("kibao nuxt runtime", async () => {
           observerValue: string;
         };
       };
-    }>("/api/observer-runtime");
+    }>("/api/observer-refresh");
 
     expect(observerPayload.vars).toMatchObject({
       PUBLIC_FROM_BAO: "public-value-updated",
@@ -202,6 +206,10 @@ describe("kibao nuxt runtime", async () => {
       PRIVATE_FROM_BAO: "private-value-updated",
       NUXT_PUBLIC_OBSERVER_VALUE: "observer-public-value-updated",
       NUXT_OBSERVER_SECRET: "observer-private-secret-updated",
+    });
+    expect(observerPayload.processEnv.GOOGLE_APPLICATION_CREDENTIALS).toBeTypeOf("string");
+    expect(JSON.parse(observerPayload.processEnv.GOOGLE_APPLICATION_CREDENTIALS!)).toMatchObject({
+      project_id: "observer-project",
     });
     expect(observerPayload.runtimeConfig).toMatchObject({
       observerSecret: "observer-private-secret-updated",

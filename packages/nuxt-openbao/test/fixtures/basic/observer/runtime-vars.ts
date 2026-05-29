@@ -11,6 +11,7 @@ export default defineEventHandler((event) => {
       PRIVATE_FROM_BAO: process.env.PRIVATE_FROM_BAO,
       NUXT_PUBLIC_OBSERVER_VALUE: process.env.NUXT_PUBLIC_OBSERVER_VALUE,
       NUXT_OBSERVER_SECRET: process.env.NUXT_OBSERVER_SECRET,
+      GOOGLE_APPLICATION_CREDENTIALS: process.env.GOOGLE_APPLICATION_CREDENTIALS,
     },
     runtimeConfig: {
       observerSecret: config.observerSecret,
