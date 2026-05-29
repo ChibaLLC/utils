@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.6
+
+### Patch Changes
+
+- chore: fix startup injection timing
+
 ## 1.1.5
 
 ### Patch Changes
