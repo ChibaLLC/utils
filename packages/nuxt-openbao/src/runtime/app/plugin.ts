@@ -57,6 +57,7 @@ export default defineNuxtPlugin({
     } else if (config.openbao?.public) {
       const { vars: _vars } = (await _getPublicVars()) || {};
       config.vars = defu(_vars, config.vars) as KibaoVars;
+      setEnv({ vars: config.vars });
       console.debug("Successfully fetched vars");
     }
 
