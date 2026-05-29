@@ -1,5 +1,5 @@
 import { useRuntimeConfig } from "nitropack/runtime";
-import { reconsileConfig, setEnv } from "../env";
+import { reconsileConfig, setEnv, crawlVarsFromEnv } from "../env";
 import { getAllVars } from "../utils";
 import { entries } from "@chiballc/utils";
 import { defu } from "defu";
@@ -14,7 +14,7 @@ export async function injectVars(options: OneOf<[{ app: NitroApp }, { event: H3E
   const init = async () => {
     const config = useRuntimeConfig();
     let kibao: Partial<KibaoConfig["kibao"]> = config.kibao || config.public.kibao || {};
-    kibao = reconsileConfig(null, config);
+    kibao = reconsileConfig(crawlVarsFromEnv(), config);
     if (kibao?.disabled) {
       return;
     }
