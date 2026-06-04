@@ -173,7 +173,8 @@ export function peek(item: any): any {
   }
 
   if (typeof item === "object") {
-    return values(item).next().value;
+    const next = values(item).next()
+    return (next as any).value || next;
   }
 
   return item;

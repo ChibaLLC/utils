@@ -50,7 +50,7 @@ export function waitForBroadcastReady(registration: ServiceWorkerRegistration, t
   });
 }
 
-function getCommunicationChannels(channelName: string) {
+export function getCommunicationChannels(channelName: string) {
   const console = consola.withTag("service-worker");
   const requestChannel = new BroadcastChannel(channelName);
   const responseChannel = new BroadcastChannel(`${channelName}:responses`);

@@ -25,6 +25,20 @@ export function toSeconds(time: number, unit: Unit) {
   }
 }
 
+export function toHours(time: number, unit: Exclude<Unit, "hr">) {
+  switch (unit) {
+    case "min":
+      return time / 60;
+    case "s":
+      return time / 60 / 60;
+    case "ms":
+      return time / 1000 / 60 / 60;
+    default:
+      throw new Error("No time input unit specified");
+  }
+}
+
+
 export function sleep(ms: number) {
   return new Promise<undefined>((resolve) => setTimeout(resolve, ms));
 }
