@@ -64,7 +64,7 @@ export default defineNuxtPlugin({
     // TODO: investigate implications if enabled, probably a bad idea to
     // if (import.meta.server && config.openbao.private) {
     //   try {
-    //     const _vars = await getAllVars(config.openbao);
+    //     const _vars = await getAllVars(config.openbao, { baseURL: joinURL(config.server?.bao || "", "/bao-proxy") });
     //     for (const [_, _var] of entries(_vars)) {
     //       setEnv({
     //         vars: _var || {},

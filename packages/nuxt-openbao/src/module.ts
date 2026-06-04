@@ -73,7 +73,7 @@ export default defineNuxtModule<KibaoConfig["kibao"]>({
       });
     });
 
-    const groupedVars = await getAllVars(resolved.openbao);
+    const groupedVars = await getAllVars(resolved.openbao, { baseURL: resolved.server?.bao });
     const allVars: Record<string, string> = {};
 
     for (const [access, vars] of entries(groupedVars)) {

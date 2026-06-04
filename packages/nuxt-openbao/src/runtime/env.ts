@@ -114,8 +114,12 @@ export function reconsileConfig<T extends RuntimeConfigLike>(
 
 export function setEnv(kibao: { vars: Record<string, string> }) {
   if (typeof process === "undefined") {
-    console.info("Injecting process");
-    globalThis.process = {} as any;
+    console.warn(
+      "Injecting process because it does not exist, this may have been removed by a bundler - if so ignore this warning",
+    );
+    globalThis.process = {
+      env: {},
+    } as any;
   }
 
   if (!globalThis.process.env) {

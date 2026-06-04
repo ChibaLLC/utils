@@ -3,7 +3,7 @@ import { joinURL } from "ufo";
 import { $fetch } from "ofetch";
 import { consola } from "consola";
 
-import { entries } from "@chiballc/utils";
+import { entries, execute } from "@chiballc/utils";
 import type { OpenBaoOptions } from "../types";
 import { crawlVarsFromEnv, getEnvSereverURL, reconsileConfig, setEnv } from "./env";
 
@@ -192,22 +192,26 @@ export async function autoEnv(access: SmartString<KibaoAccess> = "public", updat
   return baoVars;
 }
 
-export async function getAllVars(openbao: OpenBaoOptions) {
+export async function getAllVars(openbao: OpenBaoOptions, options?: { baseURL?: string }) {
   const _vars: Partial<Record<keyof OpenBaoOptions, Record<string, string>>> = {};
   for (const [access, config] of entries(openbao)) {
     if (!config) {
       continue;
     }
 
-    const baseURL = getEnvSereverURL() || config.baseURL;
+    const baseURL = options?.baseURL || getEnvSereverURL() || config.baseURL;
     if (!baseURL) {
       console.fatal("We could not determine the location of you openbao instance");
       continue;
     }
 
-    const { vars } = await getSecrets({ ...config, baseURL }, access);
+    const { result, error } = await execute(getSecrets({ ...config, baseURL }, access));
+    if (error) {
+      console.error("Failed to fetch variables for access", access, "with error", error);
+      continue;
+    }
 
-    _vars[access] = vars;
+    _vars[access] = result.vars;
   }
 
   return _vars;

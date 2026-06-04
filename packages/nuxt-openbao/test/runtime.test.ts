@@ -201,6 +201,27 @@ describe("OpenBao runtime helpers", () => {
     });
     expect(publicConfig.baseURL).toBe(openbao.baseURL);
   });
+
+  it("uses the passed baseURL option when loading variables", async () => {
+    const vars = await getAllVars(
+      {
+        public: {
+          location: {
+            app: "demo",
+            environment: "test",
+          },
+          token: `${PUBLIC_TOKEN_ATTESTATION}public-token`,
+          baseURL: "http://invalid.local",
+        },
+      },
+      { baseURL: openbao.baseURL },
+    );
+
+    expect(vars.public).toMatchObject({
+      PUBLIC_FROM_BAO: "public-value",
+    });
+    expect(openbao.requests[0]?.headers["x-vault-token"]).toBe("public-token");
+  });
 });
 
 describe("Kibao environment helpers", () => {

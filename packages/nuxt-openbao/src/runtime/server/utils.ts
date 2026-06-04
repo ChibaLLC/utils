@@ -18,7 +18,7 @@ export async function injectVars(options: { app: NitroApp }) {
     const refresh = async (refreshEvent?: H3Event) => {
       const refreshConfig = refreshEvent ? useRuntimeConfig(refreshEvent) : config;
       const refreshKibao = reconsileConfig(crawlVarsFromEnv(), refreshConfig);
-      const vars = await getAllVars(refreshKibao.openbao || {});
+      const vars = await getAllVars(refreshKibao.openbao || {}, { baseURL: refreshKibao.server?.bao });
 
       for (const [_, _vars] of entries(vars)) {
         kibao.vars = {
