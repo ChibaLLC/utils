@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.0.0
+
+### Major Changes
+
+- chore: changeset
+- e51cbdc: fix: getting config base url kibao
+
 ## 1.1.6
 
 ### Patch Changes
