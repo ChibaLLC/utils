@@ -393,6 +393,21 @@ describe("Kibao environment helpers", () => {
     expect(process.env.TEST_SET_ENV).toBe("set-by-kibao");
   });
 
+  it("stringifies non-string variables before setting env", () => {
+    setEnv({
+      vars: {
+        TEST_OBJECT_ENV: {
+          project_id: "object-project",
+        },
+      },
+    });
+
+    expect(JSON.parse(process.env.TEST_OBJECT_ENV!)).toEqual({
+      project_id: "object-project",
+    });
+    expect(env.TEST_OBJECT_ENV).toBe(process.env.TEST_OBJECT_ENV);
+  });
+
   it("applies pulled Nuxt env variables to existing runtime config keys", () => {
     const runtimeConfig = {
       apiSecret: "",

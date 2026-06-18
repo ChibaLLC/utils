@@ -112,7 +112,7 @@ export function reconsileConfig<T extends RuntimeConfigLike>(
   return merged as unknown as KibaoConfig["kibao"];
 }
 
-export function setEnv(kibao: { vars: Record<string, string> }) {
+export function setEnv(kibao: { vars: Record<string, unknown> }) {
   if (typeof process === "undefined") {
     console.warn(
       "Injecting process because it does not exist, this may have been removed by a bundler - if so ignore this warning",
@@ -129,8 +129,9 @@ export function setEnv(kibao: { vars: Record<string, string> }) {
   }
 
   for (const [key, val] of entries(kibao.vars)) {
-    process.env[key] = val;
-    env[key] = val;
+    const value = typeof val === "string" ? val : JSON.stringify(val);
+    process.env[key] = value;
+    env[key] = value;
   }
 }
 
