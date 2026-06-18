@@ -5,6 +5,26 @@ import { entries } from "@chiballc/utils";
 import type { NitroApp } from "nitropack";
 import type { KibaoConfig, KibaoVars } from "~/src/types";
 import type { H3Event } from "h3";
+import { env } from "std-env";
+
+const KIBAO_INJECTED_ENV = "__KIBAO_INJECTED";
+
+declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
+  namespace NodeJS {
+    interface ProcessEnv {
+      __KIBAO_INJECTED?: "true" | "false";
+    }
+  }
+}
+
+function needsEnvInjection() {
+  if (typeof process === "undefined" || !process.env) {
+    return true;
+  }
+
+  return process.env[KIBAO_INJECTED_ENV] !== "true" || env[KIBAO_INJECTED_ENV] !== "true";
+}
 
 export async function injectVars(options: { app: NitroApp }) {
   const init = (event?: H3Event) => {
@@ -25,7 +45,7 @@ export async function injectVars(options: { app: NitroApp }) {
           ...(kibao.vars || {}),
           ...(_vars || {}),
         } as KibaoVars;
-        setEnv({ vars: _vars || {} });
+        setEnv({ vars: { ..._vars, [KIBAO_INJECTED_ENV]: "true" } });
         applyRuntimeConfigEnv(_vars || {}, refreshConfig);
       }
     };
@@ -43,5 +63,10 @@ export async function injectVars(options: { app: NitroApp }) {
   options.app.hooks.hook("request", async (event) => {
     await startup;
     event.context.vars = vars;
+    if (needsEnvInjection()) {
+      const data = vars?.data || {};
+      console.info("injecting variables into process");
+      setEnv({ vars: { ...data, [KIBAO_INJECTED_ENV]: "true" } });
+    }
   });
 }
