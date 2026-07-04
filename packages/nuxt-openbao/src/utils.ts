@@ -38,12 +38,18 @@ export function createTypeTemplates(vars: KibaoVarsByAccess) {
   const renderedAllVars = renderVars(allVars);
 
   const createVarsType = (name: string, renderedVars: string) => /* typescript */ `
+    import type { H3Event } from "h3";
     import type { KibaoConfig } from "#imports";
 
     export interface ${name} extends KibaoConfig["kibao"] {
       vars: {
         ${renderedVars}
       };
+    }
+
+    export interface KibaoVarsPayload {
+      readonly data: ${name}["vars"];
+      refresh: (event?: H3Event) => Promise<void>;
     }
     `;
 
@@ -60,10 +66,7 @@ export function createTypeTemplates(vars: KibaoVarsByAccess) {
 
     declare module "h3" {
       interface H3EventContext {
-        vars?: {
-          readonly data: ParsedKibaoNitroConfig["vars"];
-          refresh: () => Promise<void>;
-        };
+        vars?: KibaoVarsPayload;
       }
     }
 

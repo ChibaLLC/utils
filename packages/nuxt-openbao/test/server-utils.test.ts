@@ -57,7 +57,7 @@ describe("kibao server env injection", () => {
 
   it("skips request reinjection when startup already marked env as injected", async () => {
     const { injectVars } = await import("../src/runtime/server/utils");
-    const request = await createRequestHook(injectVars);
+    const { request } = await createHooks(injectVars);
 
     await request({ context: {} });
 
@@ -72,7 +72,7 @@ describe("kibao server env injection", () => {
 
   it("reinjects cached vars when the injected marker is missing", async () => {
     const { injectVars } = await import("../src/runtime/server/utils");
-    const request = await createRequestHook(injectVars);
+    const { request } = await createHooks(injectVars);
 
     await request({ context: {} });
     delete process.env.__KIBAO_INJECTED;
@@ -87,25 +87,78 @@ describe("kibao server env injection", () => {
       },
     });
   });
+
+  it("exposes refreshed vars through the current request context", async () => {
+    const { injectVars } = await import("../src/runtime/server/utils");
+    const { request } = await createHooks(injectVars);
+    const event = { context: {}, node: {} } as any;
+
+    await request(event);
+    expect(event.context.vars.data.SECRET_FROM_BAO).toBe("secret-value");
+
+    mocks.getAllVars.mockResolvedValueOnce({
+      private: {
+        SECRET_FROM_BAO: "refreshed-secret-value",
+      },
+    });
+
+    await event.context.vars.refresh(event);
+
+    expect(event.context.vars.data).toMatchObject({
+      SECRET_FROM_BAO: "refreshed-secret-value",
+      __KIBAO_INJECTED: "true",
+    });
+  });
+
+  it("attaches vars to Nitro Cloudflare hook payloads and env bindings", async () => {
+    const { injectVars } = await import("../src/runtime/server/utils");
+    const { hooks } = await createHooks(injectVars);
+    const queue = hooks["cloudflare:queue"];
+    const scheduled = hooks["cloudflare:scheduled"];
+    const durableInit = hooks["cloudflare:durable:init"];
+
+    expect(queue).toBeTypeOf("function");
+    expect(scheduled).toBeTypeOf("function");
+    expect(durableInit).toBeTypeOf("function");
+    if (!queue) {
+      throw new Error("cloudflare:queue hook was not registered");
+    }
+
+    const payload = {
+      batch: {},
+      env: {},
+      context: {},
+    } as any;
+
+    await queue(payload);
+
+    expect(payload.env).toMatchObject({
+      SECRET_FROM_BAO: "secret-value",
+    });
+    expect(payload.vars).toBeUndefined();
+    expect(payload.context.vars.data).toMatchObject({
+      SECRET_FROM_BAO: "secret-value",
+      __KIBAO_INJECTED: "true",
+    });
+  });
 });
 
-async function createRequestHook(injectVars: (options: { app: any }) => Promise<void>) {
-  let request: ((event: { context: Record<string, unknown> }) => Promise<void>) | undefined;
+async function createHooks(injectVars: (options: { app: any }) => Promise<void>) {
+  const hooks: Record<string, (event: any) => Promise<void>> = {};
   await injectVars({
     app: {
       hooks: {
-        hook(name: string, handler: typeof request) {
-          if (name === "request") {
-            request = handler;
-          }
+        hook(name: string, handler: (event: any) => Promise<void>) {
+          hooks[name] = handler;
         },
       },
     },
   });
 
+  const request = hooks.request;
   if (!request) {
     throw new Error("request hook was not registered");
   }
 
-  return request;
+  return { hooks, request };
 }

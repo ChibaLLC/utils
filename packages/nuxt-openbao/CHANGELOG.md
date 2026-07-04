@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.0.3
+
+### Patch Changes
+
+- fix: cloudflare envs in hooks, eg queues
+
 ## 2.0.2
 
 ### Patch Changes
