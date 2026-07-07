@@ -105,11 +105,11 @@ export async function injectVars(options: { app: NitroApp }) {
   const vars = init();
   const startup = vars?.refresh?.();
 
-  const intoContext = async (event: { context?: Record<string, any> }) => {
+  const intoContext = async (event: { context?: Record<string, any> }, origin: string) => {
     await startup;
     if (needsEnvInjection()) {
       const data = vars?.data || {};
-      console.info("injecting variables into request process");
+      console.info(`injecting variables into ${origin} process`);
       setEnv({ vars: { ...data, [KIBAO_INJECTED_ENV]: "true" } });
     }
 
@@ -130,16 +130,16 @@ export async function injectVars(options: { app: NitroApp }) {
     }
   };
 
-  const intoCloudflareContext = async (event: Record<string, any>) => {
-    await intoContext(event);
+  const intoCloudflareContext = async (event: Record<string, any>, origin: string) => {
+    await intoContext(event, origin);
     if (vars?.data) {
       attachCloudflareVars(event, vars);
     }
   };
 
-  options.app.hooks.hook("request", intoContext);
-  options.app.hooks.hook("cloudflare:queue", intoCloudflareContext);
-  options.app.hooks.hook("cloudflare:scheduled", intoCloudflareContext);
-  options.app.hooks.hook("cloudflare:durable:init", intoCloudflareContext);
+  options.app.hooks.hook("request", (event) => intoContext(event, "request"));
+  options.app.hooks.hook("cloudflare:queue", (event) => intoCloudflareContext(event, "cloudflare:queue"));
+  options.app.hooks.hook("cloudflare:scheduled", (event) => intoCloudflareContext(event, "cloudflare:scheduled"));
+  options.app.hooks.hook("cloudflare:durable:init", (event) => intoCloudflareContext(event, "cloudflare:durable:init"));
   // TODO: add explicit tests/coverage before enabling the remaining Nitro v2 Cloudflare hooks: cloudflare:email, cloudflare:tail, cloudflare:trace.
 }
