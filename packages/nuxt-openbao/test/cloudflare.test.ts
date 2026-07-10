@@ -19,8 +19,12 @@ type ExecutionContextLike = {
 };
 
 describe("kibao cloudflare runtime", () => {
+  const originalFetch = globalThis.fetch;
+  const originalWebSocketPair = Object.getOwnPropertyDescriptor(globalThis, "WebSocketPair");
   let openbao: MockOpenBaoServer;
   let worker: WorkerModule["default"];
+  let globalScopeFetches = 0;
+  let handlerActive = false;
 
   beforeAll(async () => {
     openbao = await createMockOpenBaoServer();
@@ -34,16 +38,35 @@ describe("kibao cloudflare runtime", () => {
       timeout: 240_000,
     });
 
+    Object.defineProperty(globalThis, "WebSocketPair", {
+      configurable: true,
+      value: Object,
+    });
+    globalThis.fetch = ((...args: Parameters<typeof fetch>) => {
+      if (!handlerActive) {
+        globalScopeFetches++;
+        throw new Error("Network I/O attempted outside a Cloudflare handler");
+      }
+      return originalFetch(...args);
+    }) as typeof fetch;
+
     const outputURL = pathToFileURL(`${fixtureRoot}/.output/server/index.mjs`);
     outputURL.searchParams.set("t", String(Date.now()));
     worker = (await import(outputURL.href) as WorkerModule).default;
   }, 300_000);
 
   afterAll(async () => {
+    globalThis.fetch = originalFetch;
+    if (originalWebSocketPair) {
+      Object.defineProperty(globalThis, "WebSocketPair", originalWebSocketPair);
+    } else {
+      Reflect.deleteProperty(globalThis, "WebSocketPair");
+    }
     await openbao?.close();
   });
 
   it("serves OpenBao variables from a built Cloudflare Worker", async () => {
+    expect(globalScopeFetches).toBe(0);
     const payload = await fetchJson("/api/vars");
 
     expect(payload.vars).toMatchObject({
@@ -103,9 +126,14 @@ describe("kibao cloudflare runtime", () => {
   });
 
   async function fetchJson(path: string) {
-    const response = await worker.fetch(new Request(`https://fixture.test${path}`), {}, createExecutionContext());
-    expect(response.status).toBe(200);
-    return response.json() as Promise<any>;
+    handlerActive = true;
+    try {
+      const response = await worker.fetch(new Request(`https://fixture.test${path}`), {}, createExecutionContext());
+      expect(response.status).toBe(200);
+      return response.json() as Promise<any>;
+    } finally {
+      handlerActive = false;
+    }
   }
 });
 

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { env } from "std-env";
 
 const mocks = vi.hoisted(() => ({
@@ -53,6 +53,10 @@ describe("kibao server env injection", () => {
         env[key] = stringValue;
       }
     });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it("skips request reinjection when startup already marked env as injected", async () => {
@@ -140,6 +144,34 @@ describe("kibao server env injection", () => {
       SECRET_FROM_BAO: "secret-value",
       __KIBAO_INJECTED: "true",
     });
+  });
+
+  it("defers and deduplicates startup fetching in Cloudflare Workers", async () => {
+    vi.stubGlobal("WebSocketPair", Object);
+    let resolveVars: (value: { private: { SECRET_FROM_BAO: string } }) => void;
+    mocks.getAllVars.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveVars = resolve;
+      }),
+    );
+
+    const { injectVars } = await import("../src/runtime/server/utils");
+    const { request } = await createHooks(injectVars);
+
+    expect(mocks.getAllVars).not.toHaveBeenCalled();
+
+    const firstRequest = request({ context: {}, node: {} });
+    const secondRequest = request({ context: {}, node: {} });
+    expect(mocks.getAllVars).toHaveBeenCalledTimes(1);
+
+    resolveVars!({
+      private: {
+        SECRET_FROM_BAO: "secret-value",
+      },
+    });
+    await Promise.all([firstRequest, secondRequest]);
+
+    expect(mocks.setEnv).toHaveBeenCalledTimes(1);
   });
 });
 

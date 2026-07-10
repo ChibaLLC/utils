@@ -43,6 +43,10 @@ function isH3Event(event: unknown): event is H3Event {
   return !!event && typeof event === "object" && "context" in event && "node" in event;
 }
 
+function isCloudflareWorker() {
+  return "WebSocketPair" in globalThis;
+}
+
 function createVarsPayload(vars: { readonly data: KibaoVars; refresh(refreshEvent?: H3Event): Promise<void> }) {
   return {
     [KIBAO_INJECTED_ENV]: "true",
@@ -103,10 +107,15 @@ export async function injectVars(options: { app: NitroApp }) {
   };
 
   const vars = init();
-  const startup = vars?.refresh?.();
+  let startup = isCloudflareWorker() ? undefined : vars?.refresh?.();
+
+  const ensureStartup = (event?: H3Event) => {
+    startup ||= vars?.refresh?.(event);
+    return startup;
+  };
 
   const intoContext = async (event: { context?: Record<string, any> }, origin: string) => {
-    await startup;
+    await ensureStartup(isH3Event(event) ? event : undefined);
     if (needsEnvInjection()) {
       const data = vars?.data || {};
       console.info(`injecting variables into ${origin} process`);
