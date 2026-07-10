@@ -24,8 +24,8 @@ jobs:
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
 
-      - name: Use npm with trusted publishing support
-        run: npm install -g npm@latest
+      - name: Use stable npm with trusted publishing support
+        run: npm install -g npm@11.18.0
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
