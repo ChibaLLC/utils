@@ -1,11 +1,11 @@
-import MyModule from "../../../src/module";
 import { PUBLIC_TOKEN_ATTESTATION } from "../../../src/runtime/utils";
 import EnvObserverModule from "../basic/modules/env-observer";
 
 const mockOpenBaoURL = process.env.MOCK_OPENBAO_URL || "";
 
 export default defineNuxtConfig({
-  modules: [MyModule, EnvObserverModule],
+  extends: ["../base"],
+  modules: [EnvObserverModule],
   runtimeConfig: {
     observerSecret: "",
     public: {

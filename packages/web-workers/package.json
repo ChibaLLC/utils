@@ -10,5 +10,5 @@
   "author": "",
   "license": "ISC",
   "dependencies": {},
-  "packageManager": "pnpm@10.22.0"
+  "packageManager": "pnpm@11.16.0"
 }
