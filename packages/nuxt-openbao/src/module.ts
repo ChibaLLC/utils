@@ -12,7 +12,7 @@ import { entries, isEmpty } from "@chiballc/utils";
 import { consola } from "consola";
 import { createTypeTemplates, printOpenBaoConfig } from "./utils";
 import { getAllVars, type KibaoCredentials } from "./runtime/utils";
-import { assertTestFixtureAllowed, getTestVars } from "./runtime/test";
+import { getTestVars } from "./runtime/test";
 
 export type PublicKibaoConfig = {
   kibao: Omit<KibaoConfig["kibao"], "openbao"> & {
@@ -44,8 +44,6 @@ export default defineNuxtModule<KibaoConfig["kibao"]>({
     const configuredKibao = nuxt.options.kibao === false ? undefined : nuxt.options.kibao;
     const serverOnly = options.serverOnly || configuredKibao?.serverOnly;
     const test = options.test || configuredKibao?.test;
-    assertTestFixtureAllowed(test);
-
     if (options.disabled) {
       return;
     }

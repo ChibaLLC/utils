@@ -8,7 +8,8 @@ export interface KibaoVars {
 }
 
 export interface KibaoTestConfig {
-  vars: Partial<Record<KibaoAccess, KibaoVars>>;
+  enabled: boolean;
+  vars?: Partial<Record<KibaoAccess, KibaoVars>>;
 }
 
 export interface KibaoConfig {

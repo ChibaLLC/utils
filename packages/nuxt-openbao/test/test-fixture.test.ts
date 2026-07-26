@@ -1,19 +1,7 @@
 import { fileURLToPath } from "node:url";
-import { afterAll, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { $fetch, fetch, setup } from "@nuxt/test-utils/e2e";
-import { assertTestFixtureAllowed } from "../src/runtime/test";
-
-const originalNuxtTest = process.env.NUXT_TEST;
-process.env.NUXT_TEST = "true";
-
-afterAll(() => {
-  if (originalNuxtTest === undefined) {
-    delete process.env.NUXT_TEST;
-  } else {
-    process.env.NUXT_TEST = originalNuxtTest;
-  }
-
-});
+import { getTestVars } from "../src/runtime/test";
 
 describe("Kibao test fixture", async () => {
   await setup({
@@ -43,14 +31,8 @@ describe("Kibao test fixture", async () => {
     expect(JSON.stringify(payload.runtimeConfig.public.kibao)).not.toContain("test-private-value");
   });
 
-  it("rejects fixtures outside the test harness", () => {
-    process.env.NUXT_TEST = "false";
-
-    expect(() => assertTestFixtureAllowed({ vars: { public: { VALUE: "synthetic" } } })).toThrow(
-      "KIBAO TEST FIXTURE REJECTED",
-    );
-
-    process.env.NUXT_TEST = "true";
+  it("ignores fixture variables until explicitly enabled", () => {
+    expect(getTestVars({ test: { enabled: false, vars: { public: { VALUE: "synthetic" } } } })).toBeUndefined();
   });
 
   it("does not register an OpenBao proxy route", async () => {

@@ -13,6 +13,7 @@ export default defineNuxtConfig({
   },
   kibao: {
     test: {
+      enabled: true,
       vars: {
         public: {
           PUBLIC_FROM_BAO: "test-public-value",
