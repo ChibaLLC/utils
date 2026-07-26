@@ -89,6 +89,7 @@ export function reconsileConfig<T extends RuntimeConfigLike>(
     serverOnly: publicKibao.serverOnly ?? moduleOptions.serverOnly,
     openbao: defu(publicKibao.openbao || {}, moduleOptions.openbao),
     vars: defu(publicKibao.vars || {}, moduleOptions.vars),
+    test: publicKibao.test ?? moduleOptions.test,
     server: {
       bao: getEnvSereverURL() || publicKibao.server?.bao || moduleOptions.server?.bao,
       base: publicKibao.server?.base || moduleOptions.server?.base,

@@ -12,6 +12,7 @@ import { entries, isEmpty } from "@chiballc/utils";
 import { consola } from "consola";
 import { createTypeTemplates, printOpenBaoConfig } from "./utils";
 import { getAllVars, type KibaoCredentials } from "./runtime/utils";
+import { getTestVars } from "./runtime/test";
 
 export type PublicKibaoConfig = {
   kibao: Omit<KibaoConfig["kibao"], "openbao"> & {
@@ -40,21 +41,24 @@ export default defineNuxtModule<KibaoConfig["kibao"]>({
   async setup(options, nuxt) {
     const console = consola.withTag("kibao");
     const resolver = createResolver(import.meta.url);
-    const serverOnly = options.serverOnly || nuxt.options.kibao?.serverOnly;
-
+    const configuredKibao = nuxt.options.kibao === false ? undefined : nuxt.options.kibao;
+    const serverOnly = options.serverOnly || configuredKibao?.serverOnly;
+    const test = options.test || configuredKibao?.test;
     if (options.disabled) {
       return;
     }
 
     const resolved = reconsileConfig(options, nuxt.options.runtimeConfig);
+    resolved.test = test;
     if (resolved.disabled) {
       return;
     }
 
-    if (isEmpty(resolved.openbao)) {
+    const testVars = getTestVars(resolved);
+    if (!testVars && isEmpty(resolved.openbao)) {
       console.warn("No openbao configuration found, skipping...");
       return;
-    } else {
+    } else if (!testVars) {
       console.success("Found openbao configuration");
       printOpenBaoConfig(resolved.openbao);
     }
@@ -74,7 +78,7 @@ export default defineNuxtModule<KibaoConfig["kibao"]>({
       });
     });
 
-    const groupedVars = await getAllVars(resolved.openbao, { baseURL: resolved.server?.bao });
+    const groupedVars = testVars || (await getAllVars(resolved.openbao, { baseURL: resolved.server?.bao }));
     const allVars: Record<string, string> = {};
 
     for (const [access, vars] of entries(groupedVars)) {
@@ -94,6 +98,8 @@ export default defineNuxtModule<KibaoConfig["kibao"]>({
         kibao: {
           disabled: resolved.disabled,
           server: resolved.server,
+          // The browser only needs to know that fixture values are already injected.
+          test: testVars ? { vars: {} } : undefined,
           openbao: {
             public: groupedVars.public || ({} as any),
           },
@@ -123,7 +129,7 @@ export default defineNuxtModule<KibaoConfig["kibao"]>({
       nitroConfig.plugins = nitroConfig.plugins || [];
       nitroConfig.plugins.unshift(serverPlugin);
 
-      if (!serverOnly) {
+      if (!serverOnly && !testVars) {
         nitroConfig.handlers = nitroConfig.handlers || [];
         nitroConfig.handlers.unshift({
           handler: resolver.resolve("./runtime/server/routes/bao-proxy"),
