@@ -97,10 +97,16 @@ describe("kibao cloudflare runtime", () => {
     });
   });
 
-  it("does not register the OpenBao proxy route", async () => {
-    const response = await fetchResponse("/bao-proxy/v1/demo/data/test/public");
+  it("preserves the OpenBao proxy route", async () => {
+    const payload = await fetchJson("/bao-proxy/v1/demo/data/test/public");
 
-    expect(response.status).toBe(404);
+    expect(payload).toMatchObject({
+      data: {
+        data: {
+          PUBLIC_FROM_BAO: "public-value",
+        },
+      },
+    });
   });
 
   it("does not access Nitro before it is initialized during preparation", async () => {

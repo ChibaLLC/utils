@@ -1,11 +1,11 @@
-import Kibao from "../../../src/module";
 import { PUBLIC_TOKEN_ATTESTATION } from "../../../src/runtime/utils";
 import EnvObserverModule from "../basic/modules/env-observer";
 
 const mockOpenBaoURL = process.env.MOCK_OPENBAO_URL || "";
 
 export default defineNuxtConfig({
-  modules: [[Kibao, { serverOnly: true }], EnvObserverModule],
+  extends: ["../base"],
+  modules: [EnvObserverModule],
   runtimeConfig: {
     observerSecret: "",
     public: {
