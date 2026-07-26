@@ -106,17 +106,17 @@ describe("kibao cloudflare runtime", () => {
     });
   });
 
-  it("does not access Nitro before it is initialized during typecheck", async () => {
-    const result = await execFileAsync("pnpm", ["exec", "nuxi", "typecheck", fixtureRoot], {
+  it("does not access Nitro before it is initialized during preparation", async () => {
+    const { stderr, stdout } = await execFileAsync("pnpm", ["exec", "nuxi", "prepare", fixtureRoot], {
       cwd: fileURLToPath(new URL("..", import.meta.url)),
       env: {
         ...process.env,
         MOCK_OPENBAO_URL: openbao.baseURL,
       },
       timeout: 240_000,
-    }).catch((error: { stderr?: string; stdout?: string }) => error);
+    });
 
-    expect(`${result.stdout || ""}\n${result.stderr || ""}`).not.toContain("[NUXT_B8003]");
+    expect(`${stdout}\n${stderr}`).not.toContain("[NUXT_B8003]");
   });
 
   it("refreshes changed OpenBao variables inside the running Cloudflare Worker", async () => {
