@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { rmSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -28,6 +29,8 @@ describe("kibao cloudflare runtime", () => {
 
   beforeAll(async () => {
     openbao = await createMockOpenBaoServer();
+    rmSync(`${fixtureRoot}/.output`, { force: true, recursive: true });
+    rmSync(`${fixtureRoot}/.nuxt`, { force: true, recursive: true });
     const { stderr, stdout } = await execFileAsync("pnpm", ["exec", "nuxi", "build", fixtureRoot, "--preset=cloudflare_module"], {
       cwd: fileURLToPath(new URL("..", import.meta.url)),
       env: {
@@ -94,16 +97,10 @@ describe("kibao cloudflare runtime", () => {
     });
   });
 
-  it("preserves the OpenBao proxy route", async () => {
-    const payload = await fetchJson("/bao-proxy/v1/demo/data/test/public");
+  it("does not register the OpenBao proxy route", async () => {
+    const response = await fetchResponse("/bao-proxy/v1/demo/data/test/public");
 
-    expect(payload).toMatchObject({
-      data: {
-        data: {
-          PUBLIC_FROM_BAO: "public-value",
-        },
-      },
-    });
+    expect(response.status).toBe(404);
   });
 
   it("does not access Nitro before it is initialized during preparation", async () => {
@@ -152,11 +149,15 @@ describe("kibao cloudflare runtime", () => {
   });
 
   async function fetchJson(path: string) {
+    const response = await fetchResponse(path);
+    expect(response.status).toBe(200);
+    return response.json() as Promise<any>;
+  }
+
+  async function fetchResponse(path: string) {
     handlerActive = true;
     try {
-      const response = await worker.fetch(new Request(`https://fixture.test${path}`), {}, createExecutionContext());
-      expect(response.status).toBe(200);
-      return response.json() as Promise<any>;
+      return await worker.fetch(new Request(`https://fixture.test${path}`), {}, createExecutionContext());
     } finally {
       handlerActive = false;
     }

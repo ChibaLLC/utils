@@ -11,6 +11,8 @@ export interface KibaoConfig {
   kibao: {
     /** @default false */
     disabled?: boolean;
+    /** @default false */
+    serverOnly?: boolean;
     openbao: OpenBaoOptions;
     vars?: KibaoVars;
     server?: {
