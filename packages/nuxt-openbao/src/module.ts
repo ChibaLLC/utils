@@ -35,10 +35,12 @@ export default defineNuxtModule<KibaoConfig["kibao"]>({
   },
   defaults: {
     disabled: false,
+    serverOnly: false,
   },
   async setup(options, nuxt) {
     const console = consola.withTag("kibao");
     const resolver = createResolver(import.meta.url);
+    const serverOnly = options.serverOnly || nuxt.options.kibao?.serverOnly;
 
     if (options.disabled) {
       return;
@@ -108,23 +110,27 @@ export default defineNuxtModule<KibaoConfig["kibao"]>({
       },
     });
 
-    addPlugin({
-      src: resolver.resolve("./runtime/app/plugin"),
-      order: -20,
-      mode: "all",
-    });
+    if (!serverOnly) {
+      addPlugin({
+        src: resolver.resolve("./runtime/app/plugin"),
+        order: -20,
+        mode: "all",
+      });
+    }
 
     const serverPlugin = resolver.resolve("./runtime/server/plugins/0.aplugin");
     nuxt.hook("nitro:config", (nitroConfig) => {
       nitroConfig.plugins = nitroConfig.plugins || [];
       nitroConfig.plugins.unshift(serverPlugin);
 
-      nitroConfig.handlers = nitroConfig.handlers || [];
-      nitroConfig.handlers.unshift({
-        handler: resolver.resolve("./runtime/server/routes/bao-proxy"),
-        route: "/bao-proxy/**",
-        lazy: false,
-      });
+      if (!serverOnly) {
+        nitroConfig.handlers = nitroConfig.handlers || [];
+        nitroConfig.handlers.unshift({
+          handler: resolver.resolve("./runtime/server/routes/bao-proxy"),
+          route: "/bao-proxy/**",
+          lazy: false,
+        });
+      }
     });
   },
 });
