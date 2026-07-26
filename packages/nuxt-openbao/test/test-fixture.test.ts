@@ -64,6 +64,12 @@ describe("Kibao test fixture", async () => {
     process.env.NUXT_TEST = "true";
   });
 
+  it("does not fetch OpenBao while rendering the application", async () => {
+    await fetch("/");
+
+    expect(openbao.requests).toEqual([]);
+  });
+
   it("does not register an OpenBao proxy route", async () => {
     const response = await fetch("/bao-proxy/v1/drive/data/local/public");
 

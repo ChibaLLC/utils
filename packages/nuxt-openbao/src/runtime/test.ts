@@ -28,10 +28,6 @@ export function assertTestFixtureAllowed(test: KibaoTestConfig | undefined, show
     );
   }
 
-  if (Object.keys(test.vars).length === 0) {
-    throw new Error("KIBAO TEST FIXTURE REJECTED: kibao.test.vars must provide at least one access fixture.");
-  }
-
   if (showWarning) {
     console.warn(warning);
   }
