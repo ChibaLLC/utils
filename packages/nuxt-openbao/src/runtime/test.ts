@@ -1,4 +1,7 @@
 import type { KibaoConfig, KibaoTestConfig } from "../types";
+import { consola } from "consola";
+
+const console = consola.withTag("kibao");
 
 const warning = [
   "!!! KIBAO TEST FIXTURE ACTIVE !!!",
