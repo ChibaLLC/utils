@@ -7,6 +7,10 @@ export interface KibaoVars {
   [key: string]: string;
 }
 
+export interface KibaoTestConfig {
+  vars: Partial<Record<KibaoAccess, KibaoVars>>;
+}
+
 export interface KibaoConfig {
   kibao: {
     /** @default false */
@@ -15,6 +19,7 @@ export interface KibaoConfig {
     serverOnly?: boolean;
     openbao: OpenBaoOptions;
     vars?: KibaoVars;
+    test?: KibaoTestConfig;
     server?: {
       bao?: string,
       /** The server URL */

@@ -1,6 +1,7 @@
 import { useRuntimeConfig } from "nitropack/runtime";
 import { applyRuntimeConfigEnv, reconsileConfig, setEnv, crawlVarsFromEnv } from "../env";
 import { getAllVars } from "../utils";
+import { getTestVars } from "../test";
 import { entries } from "@chiballc/utils";
 import type { NitroApp } from "nitropack";
 import type { KibaoConfig, KibaoVars } from "~/src/types";
@@ -86,7 +87,7 @@ export async function injectVars(options: { app: NitroApp }) {
     const refresh = async (refreshEvent?: H3Event) => {
       const refreshConfig = refreshEvent ? useRuntimeConfig(refreshEvent) : config;
       const refreshKibao = reconsileConfig(crawlVarsFromEnv(), refreshConfig);
-      const vars = await getAllVars(refreshKibao.openbao || {}, { baseURL: refreshKibao.server?.bao });
+      const vars = getTestVars(refreshKibao) || (await getAllVars(refreshKibao.openbao || {}, { baseURL: refreshKibao.server?.bao }));
 
       for (const [_, _vars] of entries(vars)) {
         kibao.vars = {

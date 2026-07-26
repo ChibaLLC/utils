@@ -12,6 +12,7 @@ import { entries, isEmpty } from "@chiballc/utils";
 import { consola } from "consola";
 import { createTypeTemplates, printOpenBaoConfig } from "./utils";
 import { getAllVars, type KibaoCredentials } from "./runtime/utils";
+import { assertTestFixtureAllowed, getTestVars } from "./runtime/test";
 
 export type PublicKibaoConfig = {
   kibao: Omit<KibaoConfig["kibao"], "openbao"> & {
@@ -41,6 +42,7 @@ export default defineNuxtModule<KibaoConfig["kibao"]>({
     const console = consola.withTag("kibao");
     const resolver = createResolver(import.meta.url);
     const serverOnly = options.serverOnly || nuxt.options.kibao?.serverOnly;
+    assertTestFixtureAllowed(options.test);
 
     if (options.disabled) {
       return;
@@ -51,10 +53,11 @@ export default defineNuxtModule<KibaoConfig["kibao"]>({
       return;
     }
 
-    if (isEmpty(resolved.openbao)) {
+    const testVars = getTestVars(resolved);
+    if (!testVars && isEmpty(resolved.openbao)) {
       console.warn("No openbao configuration found, skipping...");
       return;
-    } else {
+    } else if (!testVars) {
       console.success("Found openbao configuration");
       printOpenBaoConfig(resolved.openbao);
     }
@@ -74,7 +77,7 @@ export default defineNuxtModule<KibaoConfig["kibao"]>({
       });
     });
 
-    const groupedVars = await getAllVars(resolved.openbao, { baseURL: resolved.server?.bao });
+    const groupedVars = testVars || (await getAllVars(resolved.openbao, { baseURL: resolved.server?.bao }));
     const allVars: Record<string, string> = {};
 
     for (const [access, vars] of entries(groupedVars)) {
