@@ -41,14 +41,17 @@ export default defineNuxtModule<KibaoConfig["kibao"]>({
   async setup(options, nuxt) {
     const console = consola.withTag("kibao");
     const resolver = createResolver(import.meta.url);
-    const serverOnly = options.serverOnly || nuxt.options.kibao?.serverOnly;
-    assertTestFixtureAllowed(options.test);
+    const configuredKibao = nuxt.options.kibao === false ? undefined : nuxt.options.kibao;
+    const serverOnly = options.serverOnly || configuredKibao?.serverOnly;
+    const test = options.test || configuredKibao?.test;
+    assertTestFixtureAllowed(test);
 
     if (options.disabled) {
       return;
     }
 
     const resolved = reconsileConfig(options, nuxt.options.runtimeConfig);
+    resolved.test = test;
     if (resolved.disabled) {
       return;
     }
@@ -97,6 +100,8 @@ export default defineNuxtModule<KibaoConfig["kibao"]>({
         kibao: {
           disabled: resolved.disabled,
           server: resolved.server,
+          // The browser only needs to know that fixture values are already injected.
+          test: testVars ? { vars: {} } : undefined,
           openbao: {
             public: groupedVars.public || ({} as any),
           },
@@ -126,7 +131,8 @@ export default defineNuxtModule<KibaoConfig["kibao"]>({
       nitroConfig.plugins = nitroConfig.plugins || [];
       nitroConfig.plugins.unshift(serverPlugin);
 
-      if (!serverOnly) {
+      const fixture = nuxt.options.kibao === false ? undefined : nuxt.options.kibao?.test;
+      if (!serverOnly && !fixture) {
         nitroConfig.handlers = nitroConfig.handlers || [];
         nitroConfig.handlers.unshift({
           handler: resolver.resolve("./runtime/server/routes/bao-proxy"),

@@ -8,10 +8,15 @@ const warning = [
 ].join(" ");
 
 export function getTestVars(config: Partial<KibaoConfig["kibao"]>): KibaoTestConfig["vars"] | undefined {
-  return config.test?.vars;
+  if (!config.test) {
+    return undefined;
+  }
+
+  assertTestFixtureAllowed(config.test, false);
+  return config.test.vars;
 }
 
-export function assertTestFixtureAllowed(test: KibaoTestConfig | undefined) {
+export function assertTestFixtureAllowed(test: KibaoTestConfig | undefined, showWarning = true) {
   if (!test) {
     return;
   }
@@ -27,5 +32,7 @@ export function assertTestFixtureAllowed(test: KibaoTestConfig | undefined) {
     throw new Error("KIBAO TEST FIXTURE REJECTED: kibao.test.vars must provide at least one access fixture.");
   }
 
-  console.warn(warning);
+  if (showWarning) {
+    console.warn(warning);
+  }
 }

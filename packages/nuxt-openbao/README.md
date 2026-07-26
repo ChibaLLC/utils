@@ -37,6 +37,25 @@ npx nuxt module add my-module
 
 That's it! You can now use My Module in your Nuxt app ✨
 
+## Test Fixtures
+
+Set `kibao.test.vars` only when the test runner sets `NUXT_TEST=true`:
+
+```ts
+export default defineNuxtConfig({
+  kibao: {
+    test: {
+      vars: {
+        public: { NUXT_PUBLIC_API_ORIGIN: "https://example.test" },
+        private: { API_TOKEN: "synthetic-test-token" },
+      },
+    },
+  },
+});
+```
+
+Fixtures inject these synthetic values without contacting OpenBao and do not register the `/bao-proxy/**` route. Kibao rejects fixture configuration unless `NUXT_TEST=true`; never configure fixture values for a deployed application.
+
 
 ## Contribution
 

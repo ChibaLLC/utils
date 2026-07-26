@@ -51,6 +51,10 @@ export default defineNuxtPlugin({
       config.vars = {} as any;
     }
 
+    if (config.test?.vars) {
+      config.vars._created = "true";
+    }
+
     if (config.vars?._created) {
       setEnv({ vars: config.vars });
       console.debug("Variables already exist in environment, skipping refetch");
