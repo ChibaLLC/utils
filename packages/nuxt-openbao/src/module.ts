@@ -2,7 +2,6 @@ import {
   defineNuxtModule,
   addPlugin,
   createResolver,
-  addServerHandler,
   updateRuntimeConfig,
   addImportsSources,
   addServerImports,
@@ -119,12 +118,13 @@ export default defineNuxtModule<KibaoConfig["kibao"]>({
     nuxt.hook("nitro:config", (nitroConfig) => {
       nitroConfig.plugins = nitroConfig.plugins || [];
       nitroConfig.plugins.unshift(serverPlugin);
-    });
 
-    addServerHandler({
-      handler: resolver.resolve("./runtime/server/routes/bao-proxy"),
-      route: "/bao-proxy/**",
-      lazy: false,
+      nitroConfig.handlers = nitroConfig.handlers || [];
+      nitroConfig.handlers.unshift({
+        handler: resolver.resolve("./runtime/server/routes/bao-proxy"),
+        route: "/bao-proxy/**",
+        lazy: false,
+      });
     });
   },
 });

@@ -3,7 +3,11 @@ packages:
   - packages/nuxt-openbao/playground
   - playground
 
-onlyBuiltDependencies:
-  - '@parcel/watcher'
-  - esbuild
-  - unrs-resolver
+minimumReleaseAge: 120
+minimumReleaseAgeExclude:
+  - "@chiballc/*"
+
+allowBuilds:
+  '@parcel/watcher': true
+  esbuild: true
+  unrs-resolver: true

@@ -28,7 +28,7 @@ describe("kibao cloudflare runtime", () => {
 
   beforeAll(async () => {
     openbao = await createMockOpenBaoServer();
-    await execFileAsync("pnpm", ["exec", "nuxi", "build", fixtureRoot, "--preset=cloudflare_module"], {
+    const { stderr, stdout } = await execFileAsync("pnpm", ["exec", "nuxi", "build", fixtureRoot, "--preset=cloudflare_module"], {
       cwd: fileURLToPath(new URL("..", import.meta.url)),
       env: {
         ...process.env,
@@ -37,6 +37,7 @@ describe("kibao cloudflare runtime", () => {
       },
       timeout: 240_000,
     });
+    expect(`${stdout}\n${stderr}`).not.toContain("[NUXT_B8003]");
 
     Object.defineProperty(globalThis, "WebSocketPair", {
       configurable: true,
@@ -91,6 +92,31 @@ describe("kibao cloudflare runtime", () => {
     expect(JSON.parse(payload.observerRuntime.request.processGoogleCredentials)).toMatchObject({
       project_id: "observer-project",
     });
+  });
+
+  it("preserves the OpenBao proxy route", async () => {
+    const payload = await fetchJson("/bao-proxy/v1/demo/data/test/public");
+
+    expect(payload).toMatchObject({
+      data: {
+        data: {
+          PUBLIC_FROM_BAO: "public-value",
+        },
+      },
+    });
+  });
+
+  it("does not access Nitro before it is initialized during typecheck", async () => {
+    const result = await execFileAsync("pnpm", ["exec", "nuxi", "typecheck", fixtureRoot], {
+      cwd: fileURLToPath(new URL("..", import.meta.url)),
+      env: {
+        ...process.env,
+        MOCK_OPENBAO_URL: openbao.baseURL,
+      },
+      timeout: 240_000,
+    }).catch((error: { stderr?: string; stdout?: string }) => error);
+
+    expect(`${result.stdout || ""}\n${result.stderr || ""}`).not.toContain("[NUXT_B8003]");
   });
 
   it("refreshes changed OpenBao variables inside the running Cloudflare Worker", async () => {
