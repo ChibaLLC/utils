@@ -17,6 +17,7 @@ export default defineEventHandler((event) => {
       observerSecret: config.observerSecret,
       public: {
         observerValue: config.public.observerValue,
+        kibao: config.public.kibao,
       },
     },
   };

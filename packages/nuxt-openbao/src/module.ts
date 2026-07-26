@@ -131,8 +131,7 @@ export default defineNuxtModule<KibaoConfig["kibao"]>({
       nitroConfig.plugins = nitroConfig.plugins || [];
       nitroConfig.plugins.unshift(serverPlugin);
 
-      const fixture = nuxt.options.kibao === false ? undefined : nuxt.options.kibao?.test;
-      if (!serverOnly && !fixture) {
+      if (!serverOnly && !testVars) {
         nitroConfig.handlers = nitroConfig.handlers || [];
         nitroConfig.handlers.unshift({
           handler: resolver.resolve("./runtime/server/routes/bao-proxy"),

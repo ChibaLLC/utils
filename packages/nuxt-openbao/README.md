@@ -54,7 +54,7 @@ export default defineNuxtConfig({
 });
 ```
 
-Fixtures inject these synthetic values without contacting OpenBao and do not register the `/bao-proxy/**` route. Kibao rejects fixture configuration unless `NUXT_TEST=true`; never configure fixture values for a deployed application.
+Fixtures inject these synthetic values without contacting OpenBao. Browser code treats them as already loaded and does not use `/bao-proxy/**`; private fixture values are never added to public runtime config. Kibao rejects fixture configuration unless `NUXT_TEST=true`; never configure fixture values for a deployed application.
 
 
 ## Contribution

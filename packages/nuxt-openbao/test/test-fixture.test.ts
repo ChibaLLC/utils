@@ -36,7 +36,10 @@ describe("Kibao test fixture", async () => {
   it("injects synthetic values without an OpenBao server", async () => {
     const payload = await $fetch<{
       processEnv: Record<string, string>;
-      runtimeConfig: { observerSecret: string; public: { observerValue: string } };
+      runtimeConfig: {
+        observerSecret: string;
+        public: { observerValue: string; kibao: { test: { vars: Record<string, string> } } };
+      };
     }>("/api/observer-runtime");
 
     expect(payload.processEnv).toMatchObject({
@@ -47,6 +50,8 @@ describe("Kibao test fixture", async () => {
       observerSecret: "test-observer-private-value",
       public: { observerValue: "test-observer-public-value" },
     });
+    expect(payload.runtimeConfig.public.kibao.test.vars).toEqual({});
+    expect(JSON.stringify(payload.runtimeConfig.public.kibao)).not.toContain("test-private-value");
   });
 
   it("rejects fixtures outside the test harness", () => {
@@ -62,7 +67,7 @@ describe("Kibao test fixture", async () => {
   it("does not register an OpenBao proxy route", async () => {
     const response = await fetch("/bao-proxy/v1/drive/data/local/public");
 
-    expect(response.status).not.toBe(200);
+    expect(response.status).toBe(404);
     expect(openbao.requests).toEqual([]);
   });
 });
