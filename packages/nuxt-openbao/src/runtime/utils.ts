@@ -24,6 +24,10 @@ export type SecretFrom = {
   baseURL: string;
 };
 export type KibaoCredentials = Prettify<OneOf<[KibaoRoleCredentials, KibaoTokenCredentials]> & SecretFrom>;
+export type KibaoRequestOptions = {
+  signal?: AbortSignal;
+  maxResponseBytes?: number;
+};
 export interface KibaoRoleCredentials {
   bao: {
     role: {
@@ -50,8 +54,129 @@ type OpenBaoKV2Response = {
     metadata?: unknown;
   };
 };
-export async function getSecrets(credentials: KibaoCredentials, access: SmartString<KibaoAccess> = "public") {
-  const { headers } = await getKibaoHeaders(credentials);
+
+export const KIBAO_DEFAULT_MAX_RESPONSE_BYTES = 64 * 1024;
+
+class KibaoRequestError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "KibaoRequestError";
+  }
+}
+
+function requestError(message: string) {
+  return new KibaoRequestError(message);
+}
+
+function responseLimit(options?: KibaoRequestOptions) {
+  const limit = options?.maxResponseBytes ?? KIBAO_DEFAULT_MAX_RESPONSE_BYTES;
+  if (!Number.isSafeInteger(limit) || limit < 1) {
+    throw requestError("The Kibao response limit is invalid.");
+  }
+  return limit;
+}
+
+async function cancel(body: ReadableStream<Uint8Array> | null | undefined) {
+  try {
+    await body?.cancel();
+  } catch {
+    // Cancellation is best effort after a terminal response error.
+  }
+}
+
+async function readJson<T>(response: Response, options?: KibaoRequestOptions): Promise<T> {
+  const limit = responseLimit(options);
+  const declaredLength = response.headers.get("content-length");
+  if (declaredLength && /^\d+$/.test(declaredLength) && Number(declaredLength) > limit) {
+    await cancel(response.body);
+    throw requestError("The Kibao response exceeds the allowed size.");
+  }
+
+  if (!response.body) {
+    throw requestError("The Kibao response is invalid.");
+  }
+
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let length = 0;
+  try {
+    while (true) {
+      if (options?.signal?.aborted) {
+        throw requestError("The Kibao request was aborted.");
+      }
+      const { done, value } = await reader.read();
+      if (done) break;
+      length += value.byteLength;
+      if (length > limit) {
+        throw requestError("The Kibao response exceeds the allowed size.");
+      }
+      chunks.push(value);
+    }
+  } catch (error) {
+    await reader.cancel();
+    if (error instanceof KibaoRequestError) throw error;
+    if (options?.signal?.aborted) throw requestError("The Kibao request was aborted.");
+    throw requestError("The Kibao response could not be read.");
+  }
+
+  const bytes = new Uint8Array(length);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  try {
+    return JSON.parse(new TextDecoder().decode(bytes)) as T;
+  } catch {
+    throw requestError("The Kibao response is invalid.");
+  }
+}
+
+async function requestJson<T>(url: string, init: Parameters<typeof $fetch.raw>[1], options?: KibaoRequestOptions) {
+  let response: Response;
+  try {
+    response = await $fetch.raw(url, {
+      ...init,
+      ignoreResponseError: true,
+      responseType: "stream",
+      retry: 0,
+      signal: options?.signal,
+    });
+  } catch {
+    if (options?.signal?.aborted) throw requestError("The Kibao request was aborted.");
+    throw requestError("The Kibao request failed.");
+  }
+  if (!response.ok) {
+    await cancel(response.body);
+    throw requestError("The Kibao request failed.");
+  }
+  return readJson<T>(response, options);
+}
+
+function variablesFrom(response: unknown) {
+  if (
+    !response ||
+    typeof response !== "object" ||
+    !("data" in response) ||
+    !response.data ||
+    typeof response.data !== "object" ||
+    !("data" in response.data) ||
+    !response.data.data ||
+    typeof response.data.data !== "object" ||
+    Array.isArray(response.data.data) ||
+    !Object.values(response.data.data).every((value) => typeof value === "string")
+  ) {
+    throw requestError("The Kibao response is invalid.");
+  }
+  return response.data.data as Record<string, string>;
+}
+
+export async function getSecrets(
+  credentials: KibaoCredentials,
+  access: SmartString<KibaoAccess> = "public",
+  options?: KibaoRequestOptions,
+) {
+  const { headers } = await getKibaoHeaders(credentials, options);
 
   let cache: Record<string, string> | undefined = undefined;
   const vars = () => {
@@ -79,17 +204,15 @@ export async function getSecrets(credentials: KibaoCredentials, access: SmartStr
   const path = lit_path ? lit_path : app && environment ? joinURL("v1", app, "data", environment, access) : null;
 
   if (!path) {
-    throw new TypeError("getSecrets Unexpected arguments for getting bao variables", {
-      cause: credentials,
-    });
+    throw requestError("The Kibao request is invalid.");
   }
 
-  const response = await $fetch<OpenBaoKV2Response>(joinURL(credentials.baseURL, path), {
+  const response = await requestJson<OpenBaoKV2Response>(joinURL(credentials.baseURL, path), {
     headers,
-  });
+  }, options);
 
   return {
-    vars: response.data.data,
+    vars: variablesFrom(response),
     access,
   };
 }
@@ -101,9 +224,10 @@ export interface KibaoLoginResponse {
 export const KIBAO_DEFAULT_NAMESPACE = "root";
 export async function getKibaoToken<T extends KibaoLoginResponse>(
   credentials: KibaoRoleCredentials & Pick<SecretFrom, "baseURL">,
+  options?: KibaoRequestOptions,
 ) {
   const namespace = credentials.namespace || KIBAO_DEFAULT_NAMESPACE;
-  const response = await $fetch<T>(joinURL(credentials.baseURL, "v1/auth/approle/login"), {
+  const response = await requestJson<T>(joinURL(credentials.baseURL, "v1/auth/approle/login"), {
     body: {
       role_id: credentials.bao.role.id,
       secret_id: credentials.bao.secret.id,
@@ -112,7 +236,11 @@ export async function getKibaoToken<T extends KibaoLoginResponse>(
       "X-Vault-Namespace": namespace,
     },
     method: "POST",
-  });
+  }, options);
+
+  if (!response || typeof response !== "object" || !("auth" in response) || !response.auth || typeof response.auth !== "object" || !("client_token" in response.auth) || typeof response.auth.client_token !== "string") {
+    throw requestError("The Kibao response is invalid.");
+  }
 
   return {
     token: response.auth.client_token,
@@ -144,21 +272,18 @@ function clearAttestation(token: KibaoTokenCredentials["token"]) {
 
 export const PUBLIC_TOKEN_ATTESTATION = "yes_this_ok_to_be_public_";
 export const PRIVATE_TOKEN_ATTESTATION = "is_private_access_";
-export async function getKibaoHeaders(credentials: KibaoCredentials) {
+export async function getKibaoHeaders(credentials: KibaoCredentials, options?: KibaoRequestOptions) {
   const headers = new Headers();
   if (credentials.bao?.role?.id && credentials.bao?.secret?.id) {
     // eslint-disable-next-line no-var
-    var { token, namespace } = await getKibaoToken(credentials);
+    var { token, namespace } = await getKibaoToken(credentials, options);
   } else if (credentials.token) {
     // eslint-disable-next-line no-var
     var { token } = clearAttestation(credentials.token);
     // eslint-disable-next-line no-var
     var namespace = credentials.namespace || KIBAO_DEFAULT_NAMESPACE;
   } else {
-    throw new TypeError(
-      "It's expected your credentials have either (NUXT_KIBAO_OPENBAO_PRIVATE_BAO_ROLE_ID and NUXT_KIBAO_OPENBAO_PRIVATE_BAO_SECRET_ID) or a token",
-      { cause: credentials },
-    );
+    throw requestError("The Kibao credentials are invalid.");
   }
 
   headers.set("X-Vault-Namespace", namespace);
