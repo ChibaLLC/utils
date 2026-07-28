@@ -27,21 +27,16 @@ The `execute` helper turns a synchronous function, asynchronous function, value,
 
 ## Worker entry points
 
-Worker helpers are intentionally separate from the core entry point. Import web worker support from `@chiballc/utils/web-workers`. The Vite service worker plugin and its runtime helpers are available from `@chiballc/utils/plugins`.
+Worker helpers are intentionally separate from the core entry point. Import web worker support from `@chiballc/utils/web-workers`, the service worker runtime from `@chiballc/utils/service-workers`, and the default Vite plugin from `@chiballc/utils/plugins`.
 
 ```ts
 import { useWebWorker } from "@chiballc/utils/web-workers";
-import { serviceWorkerPlugin } from "@chiballc/utils/plugins";
+import { useServiceWorker } from "@chiballc/utils/service-workers";
+import serviceWorkerPlugin from "@chiballc/utils/plugins";
 ```
 
 See [Worker Messaging](/packages/workers) for the messaging contract and lifecycle behavior.
 
 ## Kibao for Nuxt
 
-Kibao is distributed as its own Nuxt module.
-
-```bash
-pnpm add kibao
-```
-
-Add it to a Nuxt application and provide its OpenBao configuration through `runtimeConfig` or environment variables. The [Kibao guide](/packages/kibao) explains the public/private boundary and request safeguards.
+Kibao is bundled into this package. Add `@chiballc/utils` to a Nuxt application, then register the `@chiballc/utils/kibao` module entry point. The [Kibao guide](/packages/kibao) explains the public/private boundary and request safeguards.

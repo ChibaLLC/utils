@@ -1,19 +1,19 @@
 # Kibao
 
-Kibao is a Nuxt module that reads public and private variables from OpenBao and applies them to Nuxt runtime configuration. It is published as `kibao` and bundled into the root package's `@chiballc/utils/kibao` export for consumers that need the packaged module directly.
+Kibao is a Nuxt module that reads public and private variables from OpenBao and applies them to Nuxt runtime configuration. It is provided by the root package's `@chiballc/utils/kibao` export; it is not installed as a standalone `kibao` package.
 
 ```bash
-pnpm add kibao
+pnpm add @chiballc/utils
 ```
 
 ## Configure OpenBao access
 
-Register the module and provide one or both access levels. Public variables are made available in Nuxt's public runtime configuration. Private variables remain server-side.
+Register the module entry point and provide one or both access levels. Public variables are made available in Nuxt's public runtime configuration. Private variables remain server-side.
 
 ```ts
 // nuxt.config.ts
 export default defineNuxtConfig({
-  modules: ["kibao"],
+  modules: ["@chiballc/utils/kibao"],
   kibao: {
     openbao: {
       public: {
@@ -46,7 +46,7 @@ Environment variables can override configuration. Kibao recognizes `NUXT_KIBAO_*
 The runtime helpers `getSecrets`, `getKibaoHeaders`, and `getKibaoToken` accept a caller-owned `AbortSignal`. Responses must be JSON and are streamed with a maximum size of 64 KiB. Kibao does not retry failed network operations, and its transport errors avoid including credentials, tokens, URLs, or response bodies.
 
 ```ts
-import { getSecrets } from "kibao/runtime";
+import { getSecrets } from "@chiballc/utils/kibao/runtime";
 
 const controller = new AbortController();
 const timeout = setTimeout(() => controller.abort(), 2_000);
@@ -82,3 +82,17 @@ export default defineNuxtConfig({
 ```
 
 Never enable test fixture values in a deployed application.
+
+## Complete API reference
+
+The Nuxt module accepts `disabled`, `serverOnly`, `openbao`, `vars`, `test`, and `server` configuration. `disabled` stops setup entirely. `serverOnly` prevents the client plugin and `/bao-proxy/**` route from being added. `openbao` is a public/private map of credentials. `vars` holds already-loaded values. `server.bao` is the OpenBao origin, while `server.base` is retained in the runtime configuration.
+
+`KibaoConfig`, `PublicKibaoConfig`, `OpenBaoOptions`, `KibaoVars`, and `KibaoTestConfig` describe the module configuration and generated runtime shapes. `KibaoAccess` is `"public" | "private"`. `Location` accepts either `{ app, environment }` or `{ path }`. `KibaoCredentials` combines a location and base URL with either AppRole credentials or a token. `KibaoRequestOptions` accepts `signal` and `maxResponseBytes`. `KibaoRoleCredentials`, `KibaoTokenCredentials`, `KibaoLoginResponse`, `SecretFrom`, and `Environments` describe those constituent values.
+
+The runtime entry point exports `getSecrets`, `getKibaoToken`, `getKibaoHeaders`, `autoEnv`, and `getAllVars`. `getSecrets` reads one access group. `getKibaoToken` obtains an AppRole token. `getKibaoHeaders` prepares authenticated OpenBao headers. `autoEnv` resolves one configured access group and can write it to the process environment. `getAllVars` reads every configured group. The constants `KIBAO_DEFAULT_MAX_RESPONSE_BYTES`, `KIBAO_DEFAULT_NAMESPACE`, `PUBLIC_TOKEN_ATTESTATION`, and `PRIVATE_TOKEN_ATTESTATION` expose the 64 KiB response ceiling, default namespace, and token prefixes.
+
+The same runtime entry point also exports configuration helpers. `crawlVarsFromEnv` reads recognized Kibao environment variables. `getEnvSereverURL` returns the configured OpenBao server URL; its spelling is part of the exported API. `reconsileConfig` merges module options, Nuxt runtime configuration, and environment overrides. `setEnv` writes resolved values to `process.env` and `std-env`. `applyRuntimeConfigEnv` updates matching existing runtime-configuration paths from loaded values.
+
+The `@chiballc/utils/kibao/runtime/*` wildcard exposes the individual runtime modules as well. `runtime/test` exports `getTestVars`, which returns configured fixture values only when tests are enabled. `runtime/server/utils` exports `injectVars`, the Nitro hook installer that loads values and places a refreshable payload in request context, including Cloudflare request contexts. `runtime/app/plugin`, `runtime/server/routes/bao-proxy`, and `runtime/server/plugins/0.aplugin` export the Nuxt plugin, proxy route, and Nitro plugin used internally by the module. These deep entry points are available for advanced integration, but normal applications should register `@chiballc/utils/kibao` and let the module install them.
+
+The module generates Nuxt and Nitro type templates for loaded values. In application code, its client plugin provides `$vars.data` for public variables and `$vars.refresh()` to reload them. On the server, the module adds the `/bao-proxy/**` route when client access is enabled and a Nitro plugin that injects the loaded variables into request context.
