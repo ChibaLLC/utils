@@ -77,6 +77,19 @@ describe("bounded Kibao transport", () => {
     await expect.poll(() => disconnected).toBe(true);
   });
 
+  it("allows callers to raise the response limit above the default", async () => {
+    const expected = "x".repeat(KIBAO_DEFAULT_MAX_RESPONSE_BYTES + 1);
+    const openbao = await createTestServer((_request, response) => {
+      sendJson(response, { data: { data: { VALUE: expected } } });
+    });
+
+    await expect(
+      getSecrets(createTokenCredentials(openbao.baseURL), "public", {
+        maxResponseBytes: KIBAO_DEFAULT_MAX_RESPONSE_BYTES + 1024,
+      }),
+    ).resolves.toMatchObject({ vars: { VALUE: expected } });
+  });
+
   it("propagates cancellation from AppRole login through the secret read", async () => {
     let requests = 0;
     let secretReadStarted!: () => void;
