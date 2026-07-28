@@ -66,7 +66,7 @@ class KibaoRequestError extends Error {
 
 function responseLimit(options?: KibaoRequestOptions) {
   const limit = options?.maxResponseBytes ?? KIBAO_DEFAULT_MAX_RESPONSE_BYTES;
-  if (!Number.isSafeInteger(limit) || limit < 1 || limit > KIBAO_DEFAULT_MAX_RESPONSE_BYTES) {
+  if (!Number.isSafeInteger(limit) || limit < 1) {
     throw new KibaoRequestError("The Kibao response limit is invalid.");
   }
   return limit;
