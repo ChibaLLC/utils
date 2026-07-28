@@ -55,6 +55,9 @@
     "test:kibao": "node ./scripts/validate-kibao.mjs && pnpm --filter kibao-playground build",
     "build": "pnpm rolldown -c && pnpm run build:kibao",
     "build:kibao": "pnpm --filter kibao exec nuxt-module-build prepare && pnpm --filter kibao run prepack && node ./scripts/copy-kibao.mjs",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs",
     "prepack": "pnpm run build",
     "release": "pnpm changeset publish",
     "ci": "pnpm install --frozen-lockfile && pnpm build"
@@ -95,7 +98,8 @@
     "rolldown": "1.0.0-rc.6",
     "rolldown-plugin-dts": "^0.22.3",
     "typescript": "^5.9.3",
-    "vite": "^7.3.1"
+    "vite": "^7.3.1",
+    "vitepress": "^1.6.4"
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org/",
