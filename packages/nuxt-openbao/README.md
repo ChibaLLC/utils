@@ -42,7 +42,7 @@ try {
 }
 ```
 
-Use `maxResponseBytes` only to set a stricter or application-specific response bound. Transport failures are value-free `KibaoRequestError` messages and do not include credentials, tokens, URLs, or response bodies.
+Use `maxResponseBytes` only to set a stricter response bound; it cannot exceed 64 KiB. Transport failures are value-free `KibaoRequestError` messages and do not include credentials, tokens, URLs, or response bodies.
 
 ## Quick Setup
 

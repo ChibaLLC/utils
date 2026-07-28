@@ -1,10 +1,11 @@
-import { createServer, type ServerResponse } from "node:http";
+import { createServer } from "node:http";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   KIBAO_DEFAULT_MAX_RESPONSE_BYTES,
   PUBLIC_TOKEN_ATTESTATION,
   getSecrets,
 } from "../src/runtime/utils";
+import { sendJson } from "./helpers/openbao";
 
 type TestServer = {
   baseURL: string;
@@ -17,7 +18,7 @@ afterEach(async () => {
   await Promise.all(servers.splice(0).map((server) => server.close()));
 });
 
-async function server(handler: Parameters<typeof createServer>[0]): Promise<TestServer> {
+async function createTestServer(handler: Parameters<typeof createServer>[0]): Promise<TestServer> {
   const instance = createServer(handler);
   await new Promise<void>((resolve) => instance.listen(0, "127.0.0.1", resolve));
   const address = instance.address();
@@ -34,7 +35,7 @@ async function server(handler: Parameters<typeof createServer>[0]): Promise<Test
   return result;
 }
 
-function credentials(baseURL: string) {
+function createTokenCredentials(baseURL: string) {
   return {
     baseURL,
     location: { path: "/v1/test/data/local/public" },
@@ -42,15 +43,10 @@ function credentials(baseURL: string) {
   };
 }
 
-function sendJson(response: ServerResponse, body: unknown, status = 200) {
-  response.writeHead(status, { "content-type": "application/json" });
-  response.end(JSON.stringify(body));
-}
-
 describe("bounded Kibao transport", () => {
   it("cancels a chunked response that exceeds the configured limit", async () => {
     let disconnected = false;
-    const openbao = await server((_request, response) => {
+    const openbao = await createTestServer((_request, response) => {
       response.writeHead(200, { "content-type": "application/json" });
       response.write('{"data":{"data":{"VALUE":"');
       const interval = setInterval(() => response.write("x".repeat(8 * 1024)), 1);
@@ -60,13 +56,13 @@ describe("bounded Kibao transport", () => {
       });
     });
 
-    await expect(getSecrets(credentials(openbao.baseURL))).rejects.toThrow("response exceeds");
+    await expect(getSecrets(createTokenCredentials(openbao.baseURL))).rejects.toThrow("response exceeds");
     await expect.poll(() => disconnected).toBe(true);
   });
 
   it("rejects declared oversized responses before parsing them", async () => {
     let disconnected = false;
-    const openbao = await server((_request, response) => {
+    const openbao = await createTestServer((_request, response) => {
       response.writeHead(200, {
         "content-length": String(KIBAO_DEFAULT_MAX_RESPONSE_BYTES + 1),
         "content-type": "application/json",
@@ -77,16 +73,18 @@ describe("bounded Kibao transport", () => {
       });
     });
 
-    await expect(getSecrets(credentials(openbao.baseURL))).rejects.toThrow("response exceeds");
+    await expect(getSecrets(createTokenCredentials(openbao.baseURL))).rejects.toThrow("response exceeds");
     await expect.poll(() => disconnected).toBe(true);
   });
 
-  it("propagates cancellation through AppRole login without issuing a secret read", async () => {
+  it("propagates cancellation from AppRole login through the secret read", async () => {
     let requests = 0;
-    const openbao = await server((request, response) => {
+    const openbao = await createTestServer((request, response) => {
       requests += 1;
       if (request.url === "/v1/auth/approle/login") {
-        response.on("close", () => undefined);
+        sendJson(response, { auth: { client_token: "synthetic-role-token" } });
+      } else {
+        response.writeHead(200, { "content-type": "application/json" });
       }
     });
     const controller = new AbortController();
@@ -100,21 +98,21 @@ describe("bounded Kibao transport", () => {
       { signal: controller.signal },
     );
 
-    await expect.poll(() => requests).toBe(1);
+    await expect.poll(() => requests).toBe(2);
     controller.abort();
 
     await expect(pending).rejects.toThrow("request was aborted");
-    expect(requests).toBe(1);
+    expect(requests).toBe(2);
   });
 
   it("does not retry failed requests and keeps transport errors value-free", async () => {
     let requests = 0;
-    const openbao = await server((_request, response) => {
+    const openbao = await createTestServer((_request, response) => {
       requests += 1;
       sendJson(response, { errors: ["synthetic-private-canary"] }, 503);
     });
 
-    const error = await getSecrets(credentials(openbao.baseURL)).catch((value: unknown) => value as Error);
+    const error = await getSecrets(createTokenCredentials(openbao.baseURL)).catch((value: unknown) => value as Error);
 
     expect(requests).toBe(1);
     expect(error.message).toBe("The Kibao request failed.");
@@ -122,12 +120,17 @@ describe("bounded Kibao transport", () => {
     expect(error.message).not.toContain("token");
   });
 
-  it("rejects malformed JSON with a stable error", async () => {
-    const openbao = await server((_request, response) => {
-      response.writeHead(200, { "content-type": "application/json" });
-      response.end("not-json");
+  it("cancels malformed responses with a stable error", async () => {
+    let disconnected = false;
+    const openbao = await createTestServer((_request, response) => {
+      response.writeHead(200, { "content-type": "text/plain" });
+      response.write("not-json");
+      response.on("close", () => {
+        disconnected = true;
+      });
     });
 
-    await expect(getSecrets(credentials(openbao.baseURL))).rejects.toThrow("response is invalid");
+    await expect(getSecrets(createTokenCredentials(openbao.baseURL))).rejects.toThrow("response is invalid");
+    await expect.poll(() => disconnected).toBe(true);
   });
 });
