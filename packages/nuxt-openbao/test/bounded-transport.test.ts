@@ -79,12 +79,22 @@ describe("bounded Kibao transport", () => {
 
   it("propagates cancellation from AppRole login through the secret read", async () => {
     let requests = 0;
+    let secretReadStarted!: () => void;
+    const secretReadStartedPromise = new Promise<void>((resolve) => {
+      secretReadStarted = resolve;
+    });
+    let disconnected = false;
     const openbao = await createTestServer((request, response) => {
       requests += 1;
       if (request.url === "/v1/auth/approle/login") {
         sendJson(response, { auth: { client_token: "synthetic-role-token" } });
       } else {
         response.writeHead(200, { "content-type": "application/json" });
+        response.write('{"data":{"data":{"VALUE":"');
+        response.on("close", () => {
+          disconnected = true;
+        });
+        secretReadStarted();
       }
     });
     const controller = new AbortController();
@@ -98,18 +108,24 @@ describe("bounded Kibao transport", () => {
       { signal: controller.signal },
     );
 
-    await expect.poll(() => requests).toBe(2);
+    await secretReadStartedPromise;
     controller.abort();
 
     await expect(pending).rejects.toThrow("request was aborted");
     expect(requests).toBe(2);
+    await expect.poll(() => disconnected).toBe(true);
   });
 
   it("does not retry failed requests and keeps transport errors value-free", async () => {
     let requests = 0;
+    let disconnected = false;
     const openbao = await createTestServer((_request, response) => {
       requests += 1;
-      sendJson(response, { errors: ["synthetic-private-canary"] }, 503);
+      response.writeHead(503, { "content-type": "application/json" });
+      response.write('{"errors":["synthetic-private-canary"]}');
+      response.on("close", () => {
+        disconnected = true;
+      });
     });
 
     const error = await getSecrets(createTokenCredentials(openbao.baseURL)).catch((value: unknown) => value as Error);
@@ -118,6 +134,7 @@ describe("bounded Kibao transport", () => {
     expect(error.message).toBe("The Kibao request failed.");
     expect(error.message).not.toContain("canary");
     expect(error.message).not.toContain("token");
+    await expect.poll(() => disconnected).toBe(true);
   });
 
   it("cancels malformed responses with a stable error", async () => {

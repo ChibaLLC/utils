@@ -80,6 +80,14 @@ async function cancelResponseBody(body: ReadableStream<Uint8Array> | null | unde
   }
 }
 
+async function cancelResponseReader(reader: ReadableStreamDefaultReader<Uint8Array>) {
+  try {
+    await reader.cancel();
+  } catch {
+    // Cancellation is best effort after a terminal response error.
+  }
+}
+
 async function readJson<T>(response: Response, options?: KibaoRequestOptions): Promise<T> {
   const limit = responseLimit(options);
   const declaredLength = response.headers.get("content-length");
@@ -113,7 +121,7 @@ async function readJson<T>(response: Response, options?: KibaoRequestOptions): P
       chunks.push(value);
     }
   } catch (error) {
-    await reader.cancel();
+    await cancelResponseReader(reader);
     if (error instanceof KibaoRequestError) throw error;
     if (options?.signal?.aborted) throw new KibaoRequestError("The Kibao request was aborted.");
     throw new KibaoRequestError("The Kibao response could not be read.");
@@ -128,12 +136,13 @@ async function readJson<T>(response: Response, options?: KibaoRequestOptions): P
   try {
     return JSON.parse(new TextDecoder().decode(bytes)) as T;
   } catch {
-    await reader.cancel();
+    await cancelResponseReader(reader);
     throw new KibaoRequestError("The Kibao response is invalid.");
   }
 }
 
 async function requestJson<T>(url: string, init: Parameters<typeof $fetch.raw>[1], options?: KibaoRequestOptions) {
+  responseLimit(options);
   let response: Response;
   try {
     response = await $fetch.raw(url, {
