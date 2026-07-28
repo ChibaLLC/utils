@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.0.5
+
+### Patch Changes
+
+- Allow callers to configure Kibao's bounded response size while keeping the 64 KiB default.
+
 ## 2.0.4
 
 ### Patch Changes
