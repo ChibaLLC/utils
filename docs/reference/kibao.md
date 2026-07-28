@@ -1,0 +1,161 @@
+# Kibao Exports
+
+Kibao is delivered by the root package rather than a standalone installation. The module entry point is `@chiballc/utils/kibao`; its public runtime entry point is `@chiballc/utils/kibao/runtime`.
+
+## Module entry point
+
+```ts
+import Kibao from "@chiballc/utils/kibao";
+```
+
+### `default: Kibao`
+
+The default export is the Nuxt module. Register it directly or use its package subpath string in `modules`. It resolves configuration, reads configured OpenBao groups, updates Nuxt runtime configuration, creates type templates, and installs the client and Nitro integrations unless disabled.
+
+### `PublicKibaoConfig`
+
+`PublicKibaoConfig` is the type augmentation applied to Nuxt public runtime configuration. It includes the general Kibao settings but restricts `openbao` to the public credentials group.
+
+The module also augments Nuxt's `RuntimeConfig` with the full `KibaoConfig` shape and `PublicRuntimeConfig` with `PublicKibaoConfig`. `KibaoConfig`, `OpenBaoOptions`, `KibaoVars`, and `KibaoTestConfig` are module configuration types used by that augmentation and are made available to Nuxt through the module's generated imports.
+
+### `KibaoConfig`
+
+`KibaoConfig` has a `kibao` object. Its `disabled` flag stops all module setup. Its `serverOnly` flag omits the browser plugin and proxy route. `openbao` describes one or both credential groups. `vars` holds loaded values. `test` enables fixture values. `server.bao` is the OpenBao origin and `server.base` is the application server URL retained in runtime configuration.
+
+### `OpenBaoOptions`
+
+`OpenBaoOptions` is a partial record of `public` and `private` access levels to `KibaoCredentials`. It permits configuring either access level independently.
+
+### `KibaoVars`
+
+`KibaoVars` is a string-to-string record for loaded variable values.
+
+### `KibaoTestConfig`
+
+`KibaoTestConfig` has a required `enabled` flag and optional public/private `vars` fixtures. Fixtures bypass OpenBao only when `enabled` is true.
+
+## Runtime entry point
+
+```ts
+import {
+  getAllVars,
+  getSecrets,
+  KIBAO_DEFAULT_MAX_RESPONSE_BYTES,
+} from "@chiballc/utils/kibao/runtime";
+```
+
+### `KibaoAccess`
+
+`KibaoAccess` is the literal union `"public" | "private"`. It identifies whether a secret group may be exposed through public runtime configuration.
+
+### `Environments`
+
+`Environments` accepts the standard `staging`, `development`, and `production` values while allowing the project's smart-string extension for custom environment names.
+
+### `Location`
+
+`Location` identifies a KV location either as `{ app, environment }` or as a literal OpenBao `{ path }`.
+
+### `SecretFrom`
+
+`SecretFrom` combines a `Location` with the OpenBao `baseURL` used to fetch it.
+
+### `KibaoRoleCredentials`
+
+`KibaoRoleCredentials` describes AppRole authentication: `bao.role.id`, `bao.secret.id`, and an optional namespace. The namespace defaults to `root`.
+
+### `KibaoTokenCredentials`
+
+`KibaoTokenCredentials` describes token authentication: a token with a public or private attestation prefix and an optional namespace. The namespace defaults to `root`.
+
+### `KibaoCredentials`
+
+`KibaoCredentials` combines `SecretFrom` with exactly one supported authentication form: AppRole credentials or token credentials.
+
+### `KibaoRequestOptions`
+
+`KibaoRequestOptions` accepts an `AbortSignal` and an optional `maxResponseBytes` limit. The limit can be stricter than the default but cannot exceed it.
+
+### `KibaoLoginResponse`
+
+`KibaoLoginResponse` describes the AppRole login response shape: an `auth.client_token` string. `getKibaoToken` is generic over this shape for compatible response extensions.
+
+### `KIBAO_DEFAULT_MAX_RESPONSE_BYTES`
+
+`KIBAO_DEFAULT_MAX_RESPONSE_BYTES` is the 65,536-byte response limit. Kibao reads response streams incrementally and rejects an oversized response before parsing it as JSON.
+
+### `KIBAO_DEFAULT_NAMESPACE`
+
+`KIBAO_DEFAULT_NAMESPACE` is the string `"root"`, used when credentials do not specify an OpenBao namespace.
+
+### `PUBLIC_TOKEN_ATTESTATION`
+
+`PUBLIC_TOKEN_ATTESTATION` is `"yes_this_ok_to_be_public_"`. Prefixing a token with it explicitly marks the fetched group as suitable for browser exposure.
+
+### `PRIVATE_TOKEN_ATTESTATION`
+
+`PRIVATE_TOKEN_ATTESTATION` is `"is_private_access_"`. Prefixing a token with it explicitly marks the token as private.
+
+### `getSecrets`
+
+`getSecrets(credentials, access?, options?)` authenticates when needed, reads one KV group, and returns its `vars` plus access level. It accepts cancellation and an optional response-size limit. Network failures, malformed responses, and response-size failures use sanitized Kibao request errors.
+
+### `getKibaoToken`
+
+`getKibaoToken(credentials, options?)` performs the AppRole login request and returns the OpenBao token and resolved namespace. It accepts only AppRole credentials combined with a base URL.
+
+### `getKibaoHeaders`
+
+`getKibaoHeaders(credentials, options?)` returns `Headers` containing `X-Vault-Namespace` and `X-Vault-Token`. With AppRole credentials it obtains a token first; with token credentials it removes the attestation prefix before creating the header.
+
+### `autoEnv`
+
+`autoEnv(access?, updateEnv?)` resolves the configured server URL and requested credentials from environment and configuration, reads that group, and optionally writes its values to the process environment. The default access group is public and `updateEnv` defaults to true.
+
+### `getAllVars`
+
+`getAllVars(openbao, options?)` reads each configured access group. It returns a partial public/private record, skipping groups that are absent or fail to load.
+
+### `crawlVarsFromEnv`
+
+`crawlVarsFromEnv()` gathers recognized `KIBAO_*`, `OPENBAO_*`, `NUXT_KIBAO_*`, and `NUXT_OPENBAO_*` environment variables into the names Kibao uses for configuration.
+
+### `getEnvSereverURL`
+
+`getEnvSereverURL()` returns the configured OpenBao server URL from `NUXT_KIBAO_SERVER_BAO`, `NUXT_PUBLIC_KIBAO_BAO_SERVER_URL`, or `DEFAULT_BAO_BASE_URL`. The exported name includes the `Serever` spelling and must be used exactly as published.
+
+### `reconsileConfig`
+
+`reconsileConfig(options, runtimeConfig)` merges module options, Nuxt runtime configuration, and recognized environment overrides into the effective Kibao configuration. The exported name includes the `reconsile` spelling and must be used exactly as published.
+
+### `setEnv`
+
+`setEnv({ vars })` writes values to both `process.env` and `std-env`. It creates a minimal process environment when a bundler has removed one.
+
+### `applyRuntimeConfigEnv`
+
+`applyRuntimeConfigEnv(vars, runtimeConfig?)` applies loaded `NUXT_*` values to matching paths that already exist in a runtime configuration object. It does not create missing paths.
+
+## Deep runtime entry points
+
+The `@chiballc/utils/kibao/runtime/*` export maps individual runtime files. These are public package paths, but the module normally registers them for you.
+
+### `runtime/test`: `getTestVars`
+
+`getTestVars(config)` returns configured test fixtures only when both `config.test.enabled` and `config.test.vars` are present. Otherwise it returns `undefined` and Kibao performs its normal OpenBao path.
+
+### `runtime/server/utils`: `injectVars`
+
+`injectVars({ app })` installs Nitro hooks that load values, update environment and runtime configuration, and expose a refreshable `{ data, refresh }` payload on request context. It also handles the supported Cloudflare request hooks.
+
+### `runtime/app/plugin`: default Nuxt plugin
+
+The default export from `runtime/app/plugin` is Kibao's browser plugin. It exposes `$vars.data` and `$vars.refresh()` to Nuxt applications and loads public values through the proxy route when they have not already been injected.
+
+### `runtime/server/routes/bao-proxy`: default route
+
+The default export from `runtime/server/routes/bao-proxy` is the H3 route handler for `/bao-proxy/**`. It forwards requests to `kibao.server.bao` and logs the upstream response status and duration.
+
+### `runtime/server/plugins/0.aplugin`: default Nitro plugin
+
+The default export from `runtime/server/plugins/0.aplugin` is the Nitro plugin that invokes `injectVars` for the running Nitro application.

@@ -2,6 +2,8 @@
 
 Kibao is a Nuxt module that reads public and private variables from OpenBao and applies them to Nuxt runtime configuration. It is provided by the root package's `@chiballc/utils/kibao` export; it is not installed as a standalone `kibao` package.
 
+For an entry for every module, runtime, type, constant, and deep runtime export, see the [Kibao API reference](/reference/kibao).
+
 ```bash
 pnpm add @chiballc/utils
 ```

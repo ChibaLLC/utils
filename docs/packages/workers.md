@@ -2,6 +2,8 @@
 
 The worker exports provide a small request-response layer over browser workers. They are intended for applications that need more structure than raw `postMessage`, while retaining direct access to the underlying worker and its lifecycle.
 
+For an entry for every web worker, service worker, and Vite plugin export, see the [worker API reference](/reference/workers).
+
 ## Web workers
 
 Import web worker helpers from `@chiballc/utils/web-workers`. `useWebWorker` accepts a Vite worker constructor, a `Worker`, a `URL`, or a string URL. A key can be supplied to share the same worker client between callers.

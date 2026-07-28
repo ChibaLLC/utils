@@ -4,6 +4,8 @@
 
 The package is deliberately unopinionated. It does not impose an application framework or data model, so it can be used from browser, server, and build tooling code where the underlying platform APIs are available.
 
+For an entry for every exported value and type, see the [core API reference](/reference/core).
+
 ## Work with uncertain async operations
 
 `execute` captures either a value or a thrown error. It accepts a promise, a function, or a plain value and preserves asynchronous results when necessary.

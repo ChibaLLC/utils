@@ -27,6 +27,14 @@ export default defineConfig({
           { text: "Kibao", link: "/packages/kibao" },
         ],
       },
+      {
+        text: "API Reference",
+        items: [
+          { text: "Core Exports", link: "/reference/core" },
+          { text: "Worker Exports", link: "/reference/workers" },
+          { text: "Kibao Exports", link: "/reference/kibao" },
+        ],
+      },
     ],
     socialLinks: [{ icon: "github", link: "https://github.com/ChibaLLC/utils" }],
     search: { provider: "local" },
