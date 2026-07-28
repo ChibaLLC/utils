@@ -27,6 +27,23 @@ My new Nuxt module for doing amazing things.
 - 🚠 &nbsp;Bar
 - 🌲 &nbsp;Baz
 
+## Bounded Runtime Reads
+
+`getSecrets`, `getKibaoHeaders`, and `getKibaoToken` accept `KibaoRequestOptions`. Pass a caller-owned `AbortSignal` to cancel the complete AppRole login and secret-read chain. Responses are streamed, limited to 64 KiB by default before JSON parsing, and never retried by Kibao.
+
+```ts
+const controller = new AbortController()
+const timeout = setTimeout(() => controller.abort(), 2_000)
+
+try {
+  await getSecrets(credentials, "private", { signal: controller.signal })
+} finally {
+  clearTimeout(timeout)
+}
+```
+
+Use `maxResponseBytes` only to set a stricter response bound; it cannot exceed 64 KiB. Transport failures are value-free `KibaoRequestError` messages and do not include credentials, tokens, URLs, or response bodies.
+
 ## Quick Setup
 
 Install the module to your Nuxt application with one command:

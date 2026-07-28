@@ -140,7 +140,7 @@ async function readBody(request: IncomingMessage) {
   }
 }
 
-function sendJson(response: ServerResponse, body: unknown, status = 200) {
+export function sendJson(response: ServerResponse, body: unknown, status = 200) {
   response.writeHead(status, {
     "content-type": "application/json",
   });
