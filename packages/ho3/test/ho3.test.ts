@@ -9,6 +9,8 @@ import {
   defineMiddleware,
   defineRootController,
   installController,
+  type Handler,
+  type HandlerCallback,
 } from "../src";
 
 interface TestEnv {
@@ -34,6 +36,14 @@ describe("ho3", () => {
       expectTypeOf(context.env.BASE_URL).toEqualTypeOf<string>();
       return context.text("ok");
     });
+
+    const serveHealth: Handler = (context) => context.text(context.env.BASE_URL);
+    const options = { method: "get", path: "/health" } as const;
+    const serveTypedHealth: HandlerCallback<import("../src").Ho3Env, typeof options> = (context) =>
+      context.text(context.env.BASE_URL);
+
+    expectTypeOf(serveHealth).toBeFunction();
+    expectTypeOf(serveTypedHealth).toBeFunction();
   });
 
   it("composes middleware and controllers under an application base", async () => {

@@ -1,5 +1,10 @@
 import { createRoute, OpenAPIHono, type RouteConfig, type RouteHandler } from "@hono/zod-openapi";
-import type { Context, Env, Handler, MiddlewareHandler } from "hono";
+import type {
+  Context,
+  Env,
+  Handler as HonoHandler,
+  MiddlewareHandler as HonoMiddlewareHandler,
+} from "hono";
 import { createHooks, type Hookable, type NestedHooks } from "hookable";
 import { joinURL } from "ufo";
 
@@ -8,6 +13,12 @@ export interface InstallConfig {
 }
 
 export interface Ho3Env extends Env {}
+
+export type Handler<T extends Env = Ho3Env> = HonoHandler<T>;
+
+export type MiddlewareHandler<T extends Env = Ho3Env> = HonoMiddlewareHandler<T>;
+
+export type OpenAPIHandler<Options extends RouteConfig, T extends Env = Ho3Env> = RouteHandler<Options, T>;
 
 export type Method = Exclude<RouteConfig["method"], "head" | "trace"> | "use" | "all";
 
@@ -29,10 +40,10 @@ export type HandlerDefinition<T extends Env = Ho3Env> = {
   callback: RouteHandler<RouteConfig, T> | Handler<T>;
 };
 
-type AnyMiddleware = MiddlewareHandler<any, any, any, any>;
+type AnyMiddleware = HonoMiddlewareHandler<any, any, any, any>;
 type AnyMiddlewareDefinition = MiddlewareDefinition<any>;
 type BaseHandlerOptions = Omit<HandlerDefinition["options"], "middleware">;
-type DefineHandlerOptions = BaseHandlerOptions & {
+export type HandlerOptions = BaseHandlerOptions & {
   middleware?: AnyMiddleware | readonly AnyMiddleware[];
 };
 type MiddlewareMember<Options> = Options extends { middleware: infer Middleware }
@@ -43,7 +54,7 @@ type MiddlewareMember<Options> = Options extends { middleware: infer Middleware 
       : never
   : never;
 type NonAny<T> = 0 extends 1 & T ? never : T;
-type EnvOfMiddleware<Middleware> = Middleware extends MiddlewareHandler<infer MiddlewareEnv, any, any, any>
+export type EnvOfMiddleware<Middleware> = Middleware extends HonoMiddlewareHandler<infer MiddlewareEnv, any, any, any>
   ? NonAny<MiddlewareEnv>
   : never;
 type UnionToIntersection<T> = (T extends unknown ? (value: T) => void : never) extends (
@@ -52,22 +63,22 @@ type UnionToIntersection<T> = (T extends unknown ? (value: T) => void : never) e
   ? Intersection
   : never;
 type RouteMiddlewareEnv<Options> = EnvOfMiddleware<MiddlewareMember<Options>>;
-type HandlerEnv<BaseEnv extends Env, Options> = [RouteMiddlewareEnv<Options>] extends [never]
+export type HandlerEnv<BaseEnv extends Env, Options> = [RouteMiddlewareEnv<Options>] extends [never]
   ? BaseEnv
   : BaseEnv & UnionToIntersection<RouteMiddlewareEnv<Options>>;
 type DefinitionHandler<Definition> = Definition extends { handler: infer Middleware } ? Middleware : never;
 type ControllerMiddlewareEnv<Middlewares extends readonly AnyMiddlewareDefinition[]> = EnvOfMiddleware<
   DefinitionHandler<Middlewares[number]>
 >;
-type ControllerEnv<BaseEnv extends Env, Middlewares extends readonly AnyMiddlewareDefinition[]> = [
+export type ControllerEnv<BaseEnv extends Env, Middlewares extends readonly AnyMiddlewareDefinition[]> = [
   ControllerMiddlewareEnv<Middlewares>,
 ] extends [never]
   ? BaseEnv
   : BaseEnv & UnionToIntersection<ControllerMiddlewareEnv<Middlewares>>;
-type HandlerCallback<BaseEnv extends Env, Options extends DefineHandlerOptions> = Options extends RouteConfig
+export type HandlerCallback<BaseEnv extends Env, Options extends HandlerOptions> = Options extends RouteConfig
   ? RouteHandler<Options, NoInfer<HandlerEnv<BaseEnv, Options>>>
   : Handler<NoInfer<HandlerEnv<BaseEnv, Options>>>;
-type DefineHandlerFor<BaseEnv extends Env> = <const Options extends DefineHandlerOptions>(
+export type DefineHandler<BaseEnv extends Env = Ho3Env> = <const Options extends HandlerOptions>(
   options: Options,
   callback: HandlerCallback<BaseEnv, Options>,
 ) => HandlerDefinition<HandlerEnv<BaseEnv, Options>>;
@@ -141,7 +152,7 @@ export function defineMiddleware<T extends Env = Ho3Env>(
 
 export function defineHandler<
   T extends Env = Ho3Env,
-  const Options extends DefineHandlerOptions = DefineHandlerOptions,
+  const Options extends HandlerOptions = HandlerOptions,
 >(options: Options, callback: HandlerCallback<T, Options>): HandlerDefinition<HandlerEnv<T, Options>> {
   return { kind: "handler", options, callback } as HandlerDefinition<HandlerEnv<T, Options>>;
 }
@@ -183,11 +194,11 @@ export function defineController<
 >(
   base: string,
   middlewares: Middlewares,
-  createHandlers: (defineHandler: DefineHandlerFor<ControllerEnv<BaseEnv, Middlewares>>) => Entries,
+  createHandlers: (defineHandler: DefineHandler<ControllerEnv<BaseEnv, Middlewares>>) => Entries,
   methodNotAllowed?: (context: Context<NoInfer<ControllerEnv<BaseEnv, Middlewares>>>, allow: string) => Response,
 ): ControllerInstaller<ControllerEnv<BaseEnv, Middlewares>> {
   type ScopedEnv = ControllerEnv<BaseEnv, Middlewares>;
-  const defineScopedHandler = defineHandler as DefineHandlerFor<ScopedEnv>;
+  const defineScopedHandler = defineHandler as DefineHandler<ScopedEnv>;
   const entries = createHandlers(defineScopedHandler);
 
   return (app, config) => {
@@ -249,7 +260,7 @@ export function defineRootController<
   const Entries extends readonly AnyControllerEntry[] = readonly AnyControllerEntry[],
 >(
   middlewares: Middlewares,
-  createHandlers: (defineHandler: DefineHandlerFor<ControllerEnv<BaseEnv, Middlewares>>) => Entries,
+  createHandlers: (defineHandler: DefineHandler<ControllerEnv<BaseEnv, Middlewares>>) => Entries,
   methodNotAllowed?: (context: Context<NoInfer<ControllerEnv<BaseEnv, Middlewares>>>, allow: string) => Response,
 ): ControllerInstaller<ControllerEnv<BaseEnv, Middlewares>> {
   const controller = defineController<BaseEnv, Middlewares, Entries>(

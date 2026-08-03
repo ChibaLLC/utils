@@ -51,6 +51,22 @@ export default app;
 
 `Ho3Env` supplies the application bindings and variables used by every definition. Route and controller middleware environments are inferred and intersected with it rather than replacing it. Controller middleware is installed before its handlers.
 
+## Reusable callbacks
+
+Ho3 exports callback types that default to the augmented `Ho3Env`. Use `Handler` for an ordinary reusable Hono callback:
+
+```ts
+import { defineHandler, type Handler } from "@chiballc/utils/ho3";
+
+export const serveHealth: Handler = (context) => {
+  return context.json({ requestId: context.get("requestId") });
+};
+
+export default defineHandler({ method: "get", path: "/health" }, serveHealth);
+```
+
+`OpenAPIHandler<Options>` types a callback against one complete Zod OpenAPI route. `HandlerCallback<Env, Options>` selects OpenAPI or ordinary Hono callback typing using the same rule as `defineHandler`. Ho3 also exports `HandlerOptions`, `HandlerEnv`, `ControllerEnv`, `EnvOfMiddleware`, `DefineHandler`, `MiddlewareHandler`, and the public definition and installer types for framework integrations.
+
 `createHo3App` installs middleware in array order, then installs controllers. The returned app environment is the intersection of the supplied middleware environments.
 
 Composition uses a typed [Hookable](https://github.com/unjs/hookable) lifecycle:
