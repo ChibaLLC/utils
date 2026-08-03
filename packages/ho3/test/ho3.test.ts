@@ -3,7 +3,7 @@ import type { MiddlewareHandler } from "hono";
 import { z } from "@hono/zod-openapi";
 
 import {
-  createApp,
+  createHo3App,
   defineController,
   defineHandler,
   defineMiddleware,
@@ -29,7 +29,9 @@ describe("ho3", () => {
         return context.text(context.get("requestId"));
       }),
     ]);
-    const app = createApp<TestEnv>({ base: "/api", controllers: [controller] });
+    const app = createHo3App({ base: "/api", middleware: [middleware], controllers: [controller] });
+
+    expectTypeOf(app).toMatchTypeOf<import("@hono/zod-openapi").OpenAPIHono<TestEnv>>();
 
     const response = await app.request("/api/users/me");
 
@@ -41,7 +43,7 @@ describe("ho3", () => {
     const root = defineRootController<TestEnv, []>([], (handler) => [
       handler({ method: "get", path: "/.well-known/keys" }, (context) => context.text("root")),
     ]);
-    const app = createApp<TestEnv>();
+    const app = createHo3App();
     installController(app, root, { base: "/api" });
 
     expect((await app.request("/.well-known/keys")).status).toBe(200);
@@ -58,7 +60,7 @@ describe("ho3", () => {
       () => [post, fallback, get],
       (_context, allow) => new Response("unsupported", { status: 405, headers: { Allow: allow } }),
     );
-    const app = createApp<TestEnv>({ controllers: [controller] });
+    const app = createHo3App({ controllers: [controller] });
 
     const unsupported = await app.request("/auth/token", { method: "PUT" });
     const unknown = await app.request("/auth/unknown");
@@ -90,7 +92,7 @@ describe("ho3", () => {
       ],
       (_context, allow) => new Response(null, { status: 405, headers: { Allow: allow } }),
     );
-    const app = createApp<TestEnv>({ controllers: [controller] });
+    const app = createHo3App({ controllers: [controller] });
 
     expect(await (await app.request("/items/item-1")).text()).toBe("item-1");
 
@@ -109,5 +111,28 @@ describe("ho3", () => {
       expectTypeOf(context.get("actor")).toEqualTypeOf<string>();
       return context.text("ok");
     });
+  });
+
+  it("intersects app environments from ordered middleware", () => {
+    type BindingsEnv = { Bindings: { TOKEN: string } };
+    type VariablesEnv = { Variables: { actor: string } };
+    const bindings = defineMiddleware<BindingsEnv>(async (_context, next) => next());
+    const variables = defineMiddleware<VariablesEnv>(async (context, next) => {
+      context.set("actor", "Ada");
+      await next();
+    });
+
+    const app = createHo3App({
+      middleware: [bindings, variables],
+      afterControllers(composedApp) {
+        composedApp.get("/typed", (context) => {
+          expectTypeOf(context.env.TOKEN).toEqualTypeOf<string>();
+          expectTypeOf(context.get("actor")).toEqualTypeOf<string>();
+          return context.text("ok");
+        });
+      },
+    });
+
+    expectTypeOf(app).toMatchTypeOf<import("@hono/zod-openapi").OpenAPIHono<BindingsEnv & VariablesEnv>>();
   });
 });

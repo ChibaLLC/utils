@@ -6,9 +6,11 @@ export interface InstallConfig {
   base?: string;
 }
 
+export interface Ho3Env extends Env {}
+
 export type Method = Exclude<RouteConfig["method"], "head" | "trace"> | "use" | "all";
 
-export type MiddlewareDefinition<T extends Env = Env> = {
+export type MiddlewareDefinition<T extends Env = Ho3Env> = {
   kind: "middleware";
   handler: MiddlewareHandler<T>;
   options?: {
@@ -17,7 +19,7 @@ export type MiddlewareDefinition<T extends Env = Env> = {
   };
 };
 
-export type HandlerDefinition<T extends Env = Env> = {
+export type HandlerDefinition<T extends Env = Ho3Env> = {
   kind: "handler";
   options: Partial<Omit<RouteConfig, "method" | "path">> & {
     method: Method;
@@ -77,21 +79,31 @@ function toHonoPath(path: string): string {
   return path.replaceAll(/\/{(.+?)}/g, "/:$1");
 }
 
-export type ControllerInstaller<T extends Env = Env> = {
+export type ControllerInstaller<T extends Env = Ho3Env> = {
   (app: OpenAPIHono<T>, config: Required<InstallConfig>): void;
   root?: boolean;
 };
 
-export type ControllerCollection<T extends Env = Env> =
+export type ControllerCollection<T extends Env = Ho3Env> =
   | ControllerInstaller<T>
   | readonly ControllerInstaller<T>[];
 
-export interface CreateAppOptions<T extends Env> extends InstallConfig {
-  middleware?: readonly MiddlewareDefinition<any>[];
+type AppEnv<Middlewares extends readonly AnyMiddlewareDefinition[]> = [
+  ControllerMiddlewareEnv<Middlewares>,
+] extends [never]
+  ? Ho3Env
+  : UnionToIntersection<ControllerMiddlewareEnv<Middlewares>>;
+
+export interface CreateHo3AppOptions<
+  Middlewares extends readonly AnyMiddlewareDefinition[] = readonly AnyMiddlewareDefinition[],
+> extends InstallConfig {
+  middleware?: Middlewares;
   controllers?: readonly ControllerCollection<any>[];
+  beforeMiddleware?: (app: OpenAPIHono<Ho3Env>) => void;
+  afterControllers?: (app: OpenAPIHono<AppEnv<Middlewares>>) => void;
 }
 
-export function defineMiddleware<T extends Env = Env>(
+export function defineMiddleware<T extends Env = Ho3Env>(
   handler: MiddlewareHandler<T>,
   options?: MiddlewareDefinition<T>["options"],
 ): MiddlewareDefinition<T> {
@@ -99,7 +111,7 @@ export function defineMiddleware<T extends Env = Env>(
 }
 
 export function defineHandler<
-  T extends Env = Env,
+  T extends Env = Ho3Env,
   const Options extends DefineHandlerOptions = DefineHandlerOptions,
 >(options: Options, callback: HandlerCallback<T, Options>): HandlerDefinition<HandlerEnv<T, Options>> {
   return { kind: "handler", options, callback } as HandlerDefinition<HandlerEnv<T, Options>>;
@@ -136,7 +148,7 @@ function installHandler<T extends Env>(
 }
 
 export function defineController<
-  BaseEnv extends Env = Env,
+  BaseEnv extends Env = Ho3Env,
   const Middlewares extends readonly AnyMiddlewareDefinition[] = readonly AnyMiddlewareDefinition[],
   const Entries extends readonly AnyControllerEntry[] = readonly AnyControllerEntry[],
 >(
@@ -203,7 +215,7 @@ export function defineController<
 }
 
 export function defineRootController<
-  BaseEnv extends Env = Env,
+  BaseEnv extends Env = Ho3Env,
   const Middlewares extends readonly AnyMiddlewareDefinition[] = readonly AnyMiddlewareDefinition[],
   const Entries extends readonly AnyControllerEntry[] = readonly AnyControllerEntry[],
 >(
@@ -243,13 +255,19 @@ export function installControllers<T extends Env>(
   }
 }
 
-export function createApp<T extends Env = Env>(options: CreateAppOptions<T> = {}): OpenAPIHono<T> {
-  const app = new OpenAPIHono<T>();
+export function createHo3App<
+  const Middlewares extends readonly AnyMiddlewareDefinition[] = readonly AnyMiddlewareDefinition[],
+>(options: CreateHo3AppOptions<Middlewares> = {}): OpenAPIHono<AppEnv<Middlewares>> {
+  type InferredEnv = AppEnv<Middlewares>;
+  const app = new OpenAPIHono<InferredEnv>();
+
+  options.beforeMiddleware?.(app as unknown as OpenAPIHono<Ho3Env>);
 
   for (const middleware of options.middleware ?? []) {
     installMiddleware(app, middleware, options);
   }
 
   installControllers(app, options.controllers ?? [], options);
+  options.afterControllers?.(app);
   return app;
 }
