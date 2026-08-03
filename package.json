@@ -35,6 +35,11 @@
       "import": "./dist/web-workers/index.mjs",
       "require": "./dist/web-workers/index.js"
     },
+    "./ho3": {
+      "types": "./dist/ho3/index.d.ts",
+      "import": "./dist/ho3/index.mjs",
+      "require": "./dist/ho3/index.cjs"
+    },
     "./kibao": {
       "types": "./dist/kibao/dist/types.d.mts",
       "import": "./dist/kibao/dist/module.mjs"
@@ -51,7 +56,8 @@
     "./package.json": "./package.json"
   },
   "scripts": {
-    "test": "pnpm run test:kibao",
+    "test": "pnpm run test:ho3 && pnpm run test:kibao",
+    "test:ho3": "vitest run packages/ho3",
     "test:kibao": "node ./scripts/validate-kibao.mjs && pnpm --filter kibao-playground build",
     "build": "pnpm rolldown -c && pnpm run build:kibao",
     "build:kibao": "pnpm --filter kibao exec nuxt-module-build prepare && pnpm --filter kibao run prepack && node ./scripts/copy-kibao.mjs",
@@ -85,21 +91,32 @@
     "ulid": "^3.0.2"
   },
   "peerDependencies": {
+    "@hono/zod-openapi": "^1.5.1",
+    "hono": "^4.12.34",
     "vite": "^5.0.0 || ^6.0.0 || ^7.0.0"
   },
   "peerDependenciesMeta": {
+    "@hono/zod-openapi": {
+      "optional": true
+    },
+    "hono": {
+      "optional": true
+    },
     "vite": {
       "optional": true
     }
   },
   "devDependencies": {
     "@changesets/cli": "^2.29.8",
+    "@hono/zod-openapi": "^1.5.1",
     "@rollup/plugin-json": "^6.1.0",
+    "hono": "^4.12.34",
     "rolldown": "1.0.0-rc.6",
     "rolldown-plugin-dts": "^0.22.3",
     "typescript": "^5.9.3",
     "vite": "^7.3.1",
-    "vitepress": "^1.6.4"
+    "vitepress": "^1.6.4",
+    "vitest": "^4.1.7"
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org/",
