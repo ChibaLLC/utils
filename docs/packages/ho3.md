@@ -23,7 +23,10 @@ interface AppEnv {
 }
 
 declare module "@chiballc/utils/ho3" {
-  interface Ho3Env extends AppEnv {}
+  interface Ho3Env {
+    Bindings: AppEnv["Bindings"];
+    Variables: AppEnv["Variables"];
+  }
 }
 
 const requestContext = defineMiddleware(async (context, next) => {
