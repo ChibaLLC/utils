@@ -17,7 +17,25 @@ interface TestEnv {
   };
 }
 
+declare module "../src" {
+  interface Ho3Env {
+    Bindings: { BASE_URL: string };
+  }
+}
+
 describe("ho3", () => {
+  it("uses an augmented Ho3Env without call-site type arguments", () => {
+    defineMiddleware(async (context, next) => {
+      expectTypeOf(context.env.BASE_URL).toEqualTypeOf<string>();
+      await next();
+    });
+
+    defineHandler({ method: "get", path: "/" }, (context) => {
+      expectTypeOf(context.env.BASE_URL).toEqualTypeOf<string>();
+      return context.text("ok");
+    });
+  });
+
   it("composes middleware and controllers under an application base", async () => {
     const middleware = defineMiddleware<TestEnv>(async (context, next) => {
       context.set("requestId", "req-1");
