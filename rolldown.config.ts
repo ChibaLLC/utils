@@ -115,4 +115,32 @@ export default defineConfig([
     ],
     platform: "browser",
   },
+
+  // --- Ho3 ---
+  {
+    input: "packages/ho3/src/index.ts",
+    plugins,
+    external: ["@hono/zod-openapi", "hono", "hookable", "ufo"],
+    output: {
+      dir: "dist/ho3",
+      format: "es",
+    },
+  },
+  {
+    input: "packages/ho3/src/index.ts",
+    external: ["@hono/zod-openapi", "hono", "hookable", "ufo"],
+    output: [
+      {
+        format: "cjs",
+        dir: "dist/ho3",
+        entryFileNames: "index.cjs",
+      },
+      {
+        format: "esm",
+        dir: "dist/ho3",
+        entryFileNames: "index.mjs",
+      },
+    ],
+    platform: "neutral",
+  },
 ]);

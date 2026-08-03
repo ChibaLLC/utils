@@ -1,0 +1,16 @@
+{
+  "name": "@chiballc/utils-ho3",
+  "version": "0.0.0",
+  "description": "H3-inspired composition utilities for Hono and Zod OpenAPI",
+  "private": true,
+  "scripts": {
+    "test": "vitest run"
+  },
+  "keywords": [
+    "hono",
+    "openapi"
+  ],
+  "author": "Chiba LLC",
+  "license": "ISC",
+  "type": "module"
+}
