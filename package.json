@@ -84,6 +84,7 @@
     "@nuxt/kit": "^4.5.0",
     "consola": "^3.4.2",
     "defu": "^6.1.7",
+    "hookable": "^6.1.1",
     "ofetch": "^1.5.1",
     "remove": "^0.1.5",
     "std-env": "4.0.0-rc.1",

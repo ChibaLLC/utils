@@ -142,15 +142,55 @@ describe("ho3", () => {
 
     const app = createHo3App({
       middleware: [bindings, variables],
-      afterControllers(composedApp) {
-        composedApp.get("/typed", (context) => {
-          expectTypeOf(context.env.TOKEN).toEqualTypeOf<string>();
-          expectTypeOf(context.get("actor")).toEqualTypeOf<string>();
-          return context.text("ok");
-        });
+      hooks: {
+        build: {
+          post: {
+            controllers(composedApp) {
+              composedApp.get("/typed", (context) => {
+                expectTypeOf(context.env.TOKEN).toEqualTypeOf<string>();
+                expectTypeOf(context.get("actor")).toEqualTypeOf<string>();
+                return context.text("ok");
+              });
+            },
+          },
+        },
       },
     });
 
     expectTypeOf(app).toMatchTypeOf<import("@hono/zod-openapi").OpenAPIHono<BindingsEnv & VariablesEnv>>();
+  });
+
+  it("runs typed composition hooks in lifecycle order", () => {
+    const calls: string[] = [];
+    const app = createHo3App({
+      hooks: {
+        build: {
+          pre: {
+            middleware: () => calls.push("pre:middleware"),
+          },
+          post: {
+            middleware: () => calls.push("post:middleware"),
+            controllers: () => calls.push("post:controllers"),
+          },
+        },
+      },
+    });
+
+    expect(calls).toEqual(["pre:middleware", "post:middleware", "post:controllers"]);
+    expect(app.hooks).toBeDefined();
+  });
+
+  it("rejects asynchronous composition hooks", () => {
+    expect(() =>
+      createHo3App({
+        hooks: {
+          build: {
+            pre: {
+              middleware: async () => undefined,
+            },
+          },
+        },
+      }),
+    ).toThrow("Ho3 composition hook build:pre:middleware must be synchronous");
   });
 });

@@ -51,9 +51,34 @@ export default app;
 
 `Ho3Env` supplies the application bindings and variables used by every definition. Route and controller middleware environments are inferred and intersected with it rather than replacing it. Controller middleware is installed before its handlers.
 
-`createHo3App` installs middleware in array order, then installs controllers. The returned app environment is the intersection of the supplied middleware environments. Use `afterControllers` when final routes or application configuration should be part of the composition call.
+`createHo3App` installs middleware in array order, then installs controllers. The returned app environment is the intersection of the supplied middleware environments.
 
-`beforeMiddleware` is available for exceptional routes that must bypass global middleware. It intentionally exposes only `Ho3Env`, not variables contributed by middleware supplied to `createHo3App`.
+Composition uses a typed [Hookable](https://github.com/unjs/hookable) lifecycle:
+
+- `build:pre:middleware` runs before global middleware is registered. It intentionally exposes only `Ho3Env`, not middleware-contributed variables.
+- `build:post:middleware` runs after global middleware registration and receives the augmented app type.
+- `build:post:controllers` runs after controller registration and receives the augmented app type.
+
+Register hooks through the `hooks` option using Hookable's flat or nested syntax. Composition hooks must be synchronous because `createHo3App` returns a fully registered app synchronously. The returned app exposes its typed `hooks` instance for inspection and additional hooks.
+
+```ts
+const app = createHo3App({
+  middleware: [requestContext],
+  controllers: [users],
+  hooks: {
+    build: {
+      post: {
+        controllers(app) {
+          app.doc("/openapi.json", {
+            openapi: "3.0.0",
+            info: { title: "Example API", version: "1.0.0" },
+          });
+        },
+      },
+    },
+  },
+});
+```
 
 ## OpenAPI handlers
 

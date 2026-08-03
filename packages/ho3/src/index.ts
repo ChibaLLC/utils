@@ -1,5 +1,6 @@
 import { createRoute, OpenAPIHono, type RouteConfig, type RouteHandler } from "@hono/zod-openapi";
 import type { Context, Env, Handler, MiddlewareHandler } from "hono";
+import { createHooks, type Hookable, type NestedHooks } from "hookable";
 import { joinURL } from "ufo";
 
 export interface InstallConfig {
@@ -94,13 +95,41 @@ type AppEnv<Middlewares extends readonly AnyMiddlewareDefinition[]> = [
   ? Ho3Env
   : UnionToIntersection<ControllerMiddlewareEnv<Middlewares>>;
 
+export interface Ho3Hooks<AppEnvironment extends Env = Ho3Env> {
+  "build:pre:middleware": (app: OpenAPIHono<Ho3Env>) => void;
+  "build:post:middleware": (app: OpenAPIHono<AppEnvironment>) => void;
+  "build:post:controllers": (app: OpenAPIHono<AppEnvironment>) => void;
+}
+
+export type Ho3App<AppEnvironment extends Env = Ho3Env> = OpenAPIHono<AppEnvironment> & {
+  hooks: Hookable<Ho3Hooks<AppEnvironment>>;
+};
+
 export interface CreateHo3AppOptions<
   Middlewares extends readonly AnyMiddlewareDefinition[] = readonly AnyMiddlewareDefinition[],
 > extends InstallConfig {
   middleware?: Middlewares;
   controllers?: readonly ControllerCollection<any>[];
-  beforeMiddleware?: (app: OpenAPIHono<Ho3Env>) => void;
-  afterControllers?: (app: OpenAPIHono<AppEnv<Middlewares>>) => void;
+  hooks?: NestedHooks<Ho3Hooks<AppEnv<Middlewares>>>;
+}
+
+function callCompositionHook<AppEnvironment extends Env, Name extends keyof Ho3Hooks<AppEnvironment> & string>(
+  hooks: Hookable<Ho3Hooks<AppEnvironment>>,
+  name: Name,
+  app: Parameters<Ho3Hooks<AppEnvironment>[Name]>[0],
+): void {
+  hooks.callHookWith(
+    (callbacks, arguments_) => {
+      for (const callback of callbacks) {
+        const result = callback(...arguments_);
+        if (result && typeof result.then === "function") {
+          throw new TypeError(`Ho3 composition hook ${name} must be synchronous`);
+        }
+      }
+    },
+    name,
+    [app] as Parameters<Ho3Hooks<AppEnvironment>[Name]>,
+  );
 }
 
 export function defineMiddleware<T extends Env = Ho3Env>(
@@ -257,17 +286,20 @@ export function installControllers<T extends Env>(
 
 export function createHo3App<
   const Middlewares extends readonly AnyMiddlewareDefinition[] = readonly AnyMiddlewareDefinition[],
->(options: CreateHo3AppOptions<Middlewares> = {}): OpenAPIHono<AppEnv<Middlewares>> {
+>(options: CreateHo3AppOptions<Middlewares> = {}): Ho3App<AppEnv<Middlewares>> {
   type InferredEnv = AppEnv<Middlewares>;
-  const app = new OpenAPIHono<InferredEnv>();
+  const hooks = createHooks<Ho3Hooks<InferredEnv>>();
+  if (options.hooks) hooks.addHooks(options.hooks);
+  const app = Object.assign(new OpenAPIHono<InferredEnv>(), { hooks });
 
-  options.beforeMiddleware?.(app as unknown as OpenAPIHono<Ho3Env>);
+  callCompositionHook(hooks, "build:pre:middleware", app as unknown as OpenAPIHono<Ho3Env>);
 
   for (const middleware of options.middleware ?? []) {
     installMiddleware(app, middleware, options);
   }
+  callCompositionHook(hooks, "build:post:middleware", app);
 
   installControllers(app, options.controllers ?? [], options);
-  options.afterControllers?.(app);
+  callCompositionHook(hooks, "build:post:controllers", app);
   return app;
 }

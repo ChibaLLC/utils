@@ -120,7 +120,7 @@ export default defineConfig([
   {
     input: "packages/ho3/src/index.ts",
     plugins,
-    external: ["@hono/zod-openapi", "hono", "ufo"],
+    external: ["@hono/zod-openapi", "hono", "hookable", "ufo"],
     output: {
       dir: "dist/ho3",
       format: "es",
@@ -128,7 +128,7 @@ export default defineConfig([
   },
   {
     input: "packages/ho3/src/index.ts",
-    external: ["@hono/zod-openapi", "hono", "ufo"],
+    external: ["@hono/zod-openapi", "hono", "hookable", "ufo"],
     output: [
       {
         format: "cjs",
