@@ -1,4 +1,5 @@
 packages:
+  - .
   - packages/*
   - packages/nuxt-openbao/playground
   - playground
