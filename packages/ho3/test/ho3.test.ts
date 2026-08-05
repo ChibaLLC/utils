@@ -187,6 +187,42 @@ describe("ho3", () => {
     expect(unsupported.headers.get("Allow")).toBe("GET, HEAD, POST");
   });
 
+  it("installs sibling method fallbacks before controller wildcards", async () => {
+    const fallback = defineController({
+      base: "/child",
+      routes: defineHandler({ method: "all", path: "/*" }, (context) => context.text("fallback")),
+    });
+    const exact = defineController({
+      base: "/child",
+      routes: defineHandler({ method: "get", path: "/exact" }, (context) => context.text("exact")),
+      methodNotAllowed: (_context, allow) =>
+        new Response("unsupported", { status: 405, headers: { Allow: allow } }),
+    });
+    const app = createHo3App({
+      controllers: [defineController({ base: "/parent", routes: [fallback, exact] })],
+    });
+
+    const unsupported = await app.request("/parent/child/exact", { method: "PUT" });
+    expect(unsupported.status).toBe(405);
+    expect(unsupported.headers.get("Allow")).toBe("GET, HEAD");
+    expect(await (await app.request("/parent/child/unknown")).text()).toBe("fallback");
+  });
+
+  it("installs exact all handlers as concrete routes instead of fallbacks", async () => {
+    const get = defineHandler({ method: "get", path: "/exact" }, (context) => context.text("get"));
+    const all = defineHandler({ method: "all", path: "/exact" }, (context) => context.text(context.req.method));
+    const methods = defineController({
+      base: "/items",
+      routes: get,
+      methodNotAllowed: (_context, allow) =>
+        new Response("unsupported", { status: 405, headers: { Allow: allow } }),
+    });
+    const catchAll = defineController({ base: "/items", routes: all });
+    const app = createHo3App({ controllers: [methods, catchAll] });
+
+    expect(await (await app.request("/items/exact", { method: "POST" })).text()).toBe("POST");
+  });
+
   it("keeps literal colon segments distinct when combining Allow methods", async () => {
     const controller = defineController<TestEnv, []>(
       "/items",
@@ -271,16 +307,46 @@ describe("ho3", () => {
     expect(unsupported.headers.get("Allow")).toBe("GET, HEAD");
   });
 
-  it("adds route middleware environments to standalone handlers", () => {
+  it("runs route middleware for ordinary handlers", async () => {
     type AddedEnv = { Variables: { actor: string } };
-    const middleware = (() => undefined) as unknown as MiddlewareHandler<AddedEnv>;
+    let executions = 0;
+    const middleware: MiddlewareHandler<AddedEnv> = async (context, next) => {
+      executions += 1;
+      context.set("actor", "Ada");
+      await next();
+    };
     const options = { method: "get", path: "/", middleware } as const;
 
-    defineHandler<TestEnv, typeof options>(options, (context) => {
+    const route = defineHandler<TestEnv, typeof options>(options, (context) => {
       expectTypeOf(context.get("requestId")).toEqualTypeOf<string>();
       expectTypeOf(context.get("actor")).toEqualTypeOf<string>();
-      return context.text("ok");
+      return context.text(context.get("actor"));
     });
+    const app = createHo3App({ controllers: [defineController({ base: "/ordinary", routes: route })] });
+
+    expect(await (await app.request("/ordinary")).text()).toBe("Ada");
+    expect(executions).toBe(1);
+  });
+
+  it("preserves OpenAPI typing for readonly route middleware", async () => {
+    type AddedEnv = { Variables: { actor: string } };
+    const middleware: MiddlewareHandler<AddedEnv> = async (context, next) => {
+      context.set("actor", "Ada");
+      await next();
+    };
+    const options = {
+      method: "get",
+      path: "/{id}",
+      middleware: [middleware],
+      request: { params: z.object({ id: z.string() }) },
+      responses: { 200: { description: "Item", content: { "text/plain": { schema: z.string() } } } },
+    } as const;
+    const route = defineHandler<TestEnv, typeof options>(options, (context) => {
+      return context.text(`${context.get("actor")}:${context.req.valid("param").id}`, 200);
+    });
+    const app = createHo3App({ controllers: [defineController({ base: "/openapi", routes: route })] });
+
+    expect(await (await app.request("/openapi/item-1")).text()).toBe("Ada:item-1");
   });
 
   it("intersects app environments from ordered middleware", () => {

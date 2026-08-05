@@ -63,6 +63,10 @@ type UnionToIntersection<T> = (T extends unknown ? (value: T) => void : never) e
   ? Intersection
   : never;
 type RouteMiddlewareEnv<Options> = EnvOfMiddleware<MiddlewareMember<Options>>;
+type OpenAPIRouteOptions<Options extends HandlerOptions> = Omit<Options, "middleware"> &
+  (Options extends { middleware: infer Middleware }
+    ? { middleware: Middleware extends readonly AnyMiddleware[] ? [...Middleware] : Middleware }
+    : {});
 export type HandlerEnv<BaseEnv extends Env, Options> = [RouteMiddlewareEnv<Options>] extends [never]
   ? BaseEnv
   : BaseEnv & UnionToIntersection<RouteMiddlewareEnv<Options>>;
@@ -75,8 +79,8 @@ export type ControllerEnv<BaseEnv extends Env, Middlewares extends readonly AnyM
 ] extends [never]
   ? BaseEnv
   : BaseEnv & UnionToIntersection<ControllerMiddlewareEnv<Middlewares>>;
-export type HandlerCallback<BaseEnv extends Env, Options extends HandlerOptions> = Options extends RouteConfig
-  ? RouteHandler<Options, NoInfer<HandlerEnv<BaseEnv, Options>>>
+export type HandlerCallback<BaseEnv extends Env, Options extends HandlerOptions> = OpenAPIRouteOptions<Options> extends RouteConfig
+  ? RouteHandler<OpenAPIRouteOptions<Options>, NoInfer<HandlerEnv<BaseEnv, Options>>>
   : Handler<NoInfer<HandlerEnv<BaseEnv, Options>>>;
 export type DefineHandler<BaseEnv extends Env = Ho3Env> = <const Options extends HandlerOptions>(
   options: Options,
@@ -133,12 +137,14 @@ export type DefineController<BaseEnv extends Env = Ho3Env> = {
   ): ControllerInstaller<ControllerEnv<BaseEnv, Middlewares>>;
 };
 
-type RuntimeApp = Record<Method, (path: string, handler: Handler<any>) => unknown> & {
+type RuntimeApp = Record<Method, (path: string, ...handlers: Handler<any>[]) => unknown> & {
   openapi: (route: RouteConfig, handler: RouteHandler<RouteConfig, any>) => unknown;
 };
 type InstallationState = {
-  fallbacks: Array<() => void>;
+  allRoutes: Set<string>;
+  methodFallbacks: Array<() => void>;
   routeMethods: Map<string, Set<string>>;
+  wildcardFallbacks: Array<() => void>;
 };
 const installationStates = new WeakMap<object, InstallationState>();
 
@@ -229,7 +235,9 @@ function installHandler<T extends Env>(
   const runtimeApp = app as unknown as RuntimeApp;
 
   if (method === "use" || method === "all" || !responses) {
-    runtimeApp[method](toHonoPath(path), handler.callback as Handler<any>);
+    const middleware = handler.options.middleware;
+    const routeMiddleware = middleware ? (Array.isArray(middleware) ? middleware : [middleware]) : [];
+    runtimeApp[method](toHonoPath(path), ...routeMiddleware, handler.callback as Handler<any>);
     return;
   }
 
@@ -301,7 +309,10 @@ function createController<BaseEnv extends Env, const Middlewares extends readonl
 
     const wildcardHandlers = entries.filter(
       (entry): entry is HandlerDefinition<ScopedEnv> =>
-        typeof entry !== "function" && entry.kind === "handler" && entry.options.method === "all",
+        typeof entry !== "function" &&
+        entry.kind === "handler" &&
+        entry.options.method === "all" &&
+        entry.options.path.includes("*"),
     );
 
     for (const entry of entries) {
@@ -309,11 +320,13 @@ function createController<BaseEnv extends Env, const Middlewares extends readonl
         entry(app, { base: entry.root ? "" : scopedConfig.base });
         continue;
       }
-      if (entry.kind === "handler" && entry.options.method === "all") continue;
+      if (entry.kind === "handler" && entry.options.method === "all" && entry.options.path.includes("*")) continue;
 
       if (entry.kind === "handler") {
         installHandler(app, entry, scopedConfig);
-        if (entry.options.method !== "use" && !entry.options.path.includes("*")) {
+        if (entry.options.method === "all") {
+          state.allRoutes.add(toRouteShape(joinURL(scopedConfig.base, entry.options.path)));
+        } else if (entry.options.method !== "use" && !entry.options.path.includes("*")) {
           const path = toRouteShape(joinURL(scopedConfig.base, entry.options.path));
           const methods = state.routeMethods.get(path) ?? new Set<string>();
           methods.add(entry.options.method.toUpperCase());
@@ -343,15 +356,16 @@ function createController<BaseEnv extends Env, const Middlewares extends readonl
         routes.set(path, state.routeMethods.get(toRouteShape(path)) ?? new Set<string>());
       }
 
-      state.fallbacks.push(() => {
+      state.methodFallbacks.push(() => {
         for (const [path, methods] of routes) {
+          if (state.allRoutes.has(toRouteShape(path))) continue;
           const allow = [...methods].sort().join(", ");
           app.all(path, (context: Context<ScopedEnv>) => methodNotAllowed(context, allow));
         }
       });
     }
 
-    state.fallbacks.push(() => {
+    state.wildcardFallbacks.push(() => {
       for (const handler of wildcardHandlers) installHandler(app, handler, scopedConfig);
     });
   };
@@ -416,7 +430,7 @@ export function installControllers<T extends Env>(
 }
 
 function createInstallationState(): InstallationState {
-  return { fallbacks: [], routeMethods: new Map() };
+  return { allRoutes: new Set(), methodFallbacks: [], routeMethods: new Map(), wildcardFallbacks: [] };
 }
 
 function withInstallationState<T extends Env>(
@@ -440,7 +454,8 @@ function withInstallationState<T extends Env>(
 }
 
 function installFallbacks(state: InstallationState): void {
-  for (const install of state.fallbacks) install();
+  for (const install of state.methodFallbacks) install();
+  for (const install of state.wildcardFallbacks) install();
 }
 
 export function createHo3App<
