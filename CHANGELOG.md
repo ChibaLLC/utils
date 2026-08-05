@@ -1,3 +1,9 @@
+## 2.5.0
+
+### Minor Changes
+
+- 0a37731: Add declarative object-form Ho3 controllers with one-or-many routes while retaining scoped callback composition.
+
 ## 2.4.0
 
 ### Minor Changes

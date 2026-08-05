@@ -92,23 +92,46 @@ export type ControllerCollection<T extends Env = Ho3Env> =
   | ControllerInstaller<T>
   | readonly ControllerInstaller<T>[];
 
-type AnyControllerEntry = HandlerDefinition<any> | MiddlewareDefinition<any> | ControllerInstaller<any>;
+type ControllerRoute = HandlerDefinition<any> | ControllerInstaller<any>;
+type ControllerRoutes = ControllerRoute | readonly ControllerRoute[];
+type AnyControllerEntry = ControllerRoute | MiddlewareDefinition<any>;
+type MethodNotAllowed<T extends Env> = (context: Context<NoInfer<T>>, allow: string) => Response;
 
-export type DefineController<BaseEnv extends Env = Ho3Env> = <
-  const Middlewares extends readonly AnyMiddlewareDefinition[] = readonly AnyMiddlewareDefinition[],
-  const Entries extends readonly AnyControllerEntry[] = readonly AnyControllerEntry[],
->(
-  base: string,
-  middlewares: Middlewares,
-  createHandlers: (
-    defineHandler: DefineHandler<ControllerEnv<BaseEnv, Middlewares>>,
-    defineController: DefineController<ControllerEnv<BaseEnv, Middlewares>>,
-  ) => Entries,
-  methodNotAllowed?: (
-    context: Context<NoInfer<ControllerEnv<BaseEnv, Middlewares>>>,
-    allow: string,
-  ) => Response,
-) => ControllerInstaller<ControllerEnv<BaseEnv, Middlewares>>;
+type ScopedControllerDefinition<
+  BaseEnv extends Env,
+  Middlewares extends readonly AnyMiddlewareDefinition[] = readonly AnyMiddlewareDefinition[],
+> = {
+  base: string;
+  middleware?: Middlewares;
+  routes: ControllerRoutes;
+  methodNotAllowed?: MethodNotAllowed<ControllerEnv<BaseEnv, Middlewares>>;
+};
+
+export type ControllerDefinition<
+  Middlewares extends readonly AnyMiddlewareDefinition[] = readonly AnyMiddlewareDefinition[],
+> = ScopedControllerDefinition<Ho3Env, Middlewares>;
+
+export type RootControllerDefinition<
+  Middlewares extends readonly AnyMiddlewareDefinition[] = readonly AnyMiddlewareDefinition[],
+> = Omit<ControllerDefinition<Middlewares>, "base">;
+
+export type DefineController<BaseEnv extends Env = Ho3Env> = {
+  <const Middlewares extends readonly AnyMiddlewareDefinition[] = readonly AnyMiddlewareDefinition[]>(
+    definition: ScopedControllerDefinition<BaseEnv, Middlewares>,
+  ): ControllerInstaller<ControllerEnv<BaseEnv, Middlewares>>;
+  <
+    const Middlewares extends readonly AnyMiddlewareDefinition[] = readonly AnyMiddlewareDefinition[],
+    const Entries extends readonly AnyControllerEntry[] = readonly AnyControllerEntry[],
+  >(
+    base: string,
+    middlewares: Middlewares,
+    createHandlers: (
+      defineHandler: DefineHandler<ControllerEnv<BaseEnv, Middlewares>>,
+      defineController: DefineController<ControllerEnv<BaseEnv, Middlewares>>,
+    ) => Entries,
+    methodNotAllowed?: MethodNotAllowed<ControllerEnv<BaseEnv, Middlewares>>,
+  ): ControllerInstaller<ControllerEnv<BaseEnv, Middlewares>>;
+};
 
 type RuntimeApp = Record<Method, (path: string, handler: Handler<any>) => unknown> & {
   openapi: (route: RouteConfig, handler: RouteHandler<RouteConfig, any>) => unknown;
@@ -131,7 +154,7 @@ type AppEnv<Middlewares extends readonly AnyMiddlewareDefinition[]> = [
   ControllerMiddlewareEnv<Middlewares>,
 ] extends [never]
   ? Ho3Env
-  : UnionToIntersection<ControllerMiddlewareEnv<Middlewares>>;
+  : Ho3Env & UnionToIntersection<ControllerMiddlewareEnv<Middlewares>>;
 
 export interface Ho3Hooks<AppEnvironment extends Env = Ho3Env> {
   "build:pre:middleware": (app: OpenAPIHono<Ho3Env>) => void;
@@ -215,6 +238,9 @@ function installHandler<T extends Env>(
 }
 
 export function defineController<
+  const Middlewares extends readonly AnyMiddlewareDefinition[] = readonly AnyMiddlewareDefinition[],
+>(definition: ControllerDefinition<Middlewares>): ControllerInstaller<ControllerEnv<Ho3Env, Middlewares>>;
+export function defineController<
   BaseEnv extends Env = Ho3Env,
   const Middlewares extends readonly AnyMiddlewareDefinition[] = readonly AnyMiddlewareDefinition[],
   const Entries extends readonly AnyControllerEntry[] = readonly AnyControllerEntry[],
@@ -225,12 +251,46 @@ export function defineController<
     defineHandler: DefineHandler<ControllerEnv<BaseEnv, Middlewares>>,
     defineController: DefineController<ControllerEnv<BaseEnv, Middlewares>>,
   ) => Entries,
-  methodNotAllowed?: (context: Context<NoInfer<ControllerEnv<BaseEnv, Middlewares>>>, allow: string) => Response,
+  methodNotAllowed?: MethodNotAllowed<ControllerEnv<BaseEnv, Middlewares>>,
+): ControllerInstaller<ControllerEnv<BaseEnv, Middlewares>>;
+export function defineController(
+  definitionOrBase: ScopedControllerDefinition<any> | string,
+  middlewares: readonly AnyMiddlewareDefinition[] = [],
+  createHandlers?: (
+    defineHandler: DefineHandler<any>,
+    defineController: DefineController<any>,
+  ) => readonly AnyControllerEntry[],
+  methodNotAllowed?: MethodNotAllowed<any>,
+): ControllerInstaller<any> {
+  if (typeof definitionOrBase !== "string") {
+    const routes = Array.isArray(definitionOrBase.routes)
+      ? definitionOrBase.routes
+      : [definitionOrBase.routes as ControllerRoute];
+    return createController(
+      definitionOrBase.base,
+      definitionOrBase.middleware ?? [],
+      routes,
+      definitionOrBase.methodNotAllowed,
+    );
+  }
+
+  const defineScopedHandler = defineHandler as DefineHandler<any>;
+  const defineScopedController = defineController as DefineController<any>;
+  return createController(
+    definitionOrBase,
+    middlewares,
+    createHandlers!(defineScopedHandler, defineScopedController),
+    methodNotAllowed,
+  );
+}
+
+function createController<BaseEnv extends Env, const Middlewares extends readonly AnyMiddlewareDefinition[]>(
+  base: string,
+  middlewares: Middlewares,
+  entries: readonly AnyControllerEntry[],
+  methodNotAllowed?: MethodNotAllowed<ControllerEnv<BaseEnv, Middlewares>>,
 ): ControllerInstaller<ControllerEnv<BaseEnv, Middlewares>> {
   type ScopedEnv = ControllerEnv<BaseEnv, Middlewares>;
-  const defineScopedHandler = defineHandler as DefineHandler<ScopedEnv>;
-  const defineScopedController = defineController as DefineController<ScopedEnv>;
-  const entries = createHandlers(defineScopedHandler, defineScopedController);
 
   const install = (app: OpenAPIHono<ScopedEnv>, config: Required<InstallConfig>, state: InstallationState) => {
     const scopedConfig = { base: joinURL(config.base, base) };
@@ -300,6 +360,9 @@ export function defineController<
 }
 
 export function defineRootController<
+  const Middlewares extends readonly AnyMiddlewareDefinition[] = readonly AnyMiddlewareDefinition[],
+>(definition: RootControllerDefinition<Middlewares>): ControllerInstaller<ControllerEnv<Ho3Env, Middlewares>>;
+export function defineRootController<
   BaseEnv extends Env = Ho3Env,
   const Middlewares extends readonly AnyMiddlewareDefinition[] = readonly AnyMiddlewareDefinition[],
   const Entries extends readonly AnyControllerEntry[] = readonly AnyControllerEntry[],
@@ -309,14 +372,19 @@ export function defineRootController<
     defineHandler: DefineHandler<ControllerEnv<BaseEnv, Middlewares>>,
     defineController: DefineController<ControllerEnv<BaseEnv, Middlewares>>,
   ) => Entries,
-  methodNotAllowed?: (context: Context<NoInfer<ControllerEnv<BaseEnv, Middlewares>>>, allow: string) => Response,
-): ControllerInstaller<ControllerEnv<BaseEnv, Middlewares>> {
-  const controller = defineController<BaseEnv, Middlewares, Entries>(
-    "/",
-    middlewares,
-    createHandlers,
-    methodNotAllowed,
-  );
+  methodNotAllowed?: MethodNotAllowed<ControllerEnv<BaseEnv, Middlewares>>,
+): ControllerInstaller<ControllerEnv<BaseEnv, Middlewares>>;
+export function defineRootController(
+  definitionOrMiddlewares: RootControllerDefinition | readonly AnyMiddlewareDefinition[],
+  createHandlers?: (
+    defineHandler: DefineHandler<any>,
+    defineController: DefineController<any>,
+  ) => readonly AnyControllerEntry[],
+  methodNotAllowed?: MethodNotAllowed<any>,
+): ControllerInstaller<any> {
+  const controller = Array.isArray(definitionOrMiddlewares)
+    ? defineController("/", definitionOrMiddlewares, createHandlers!, methodNotAllowed)
+    : defineController({ ...(definitionOrMiddlewares as RootControllerDefinition), base: "/" });
   controller.root = true;
   return controller;
 }

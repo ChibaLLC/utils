@@ -46,6 +46,36 @@ describe("ho3", () => {
     expectTypeOf(serveTypedHealth).toBeFunction();
   });
 
+  it("composes declarative handlers and controllers with augmented defaults", async () => {
+    type ActorEnv = { Variables: { actor: string } };
+    const actor = defineMiddleware<ActorEnv>(async (context, next) => {
+      context.set("actor", "Ada");
+      await next();
+    });
+    const exact = defineHandler({ method: "get", path: "/exact" }, (context) => {
+      expectTypeOf<typeof context.env.BASE_URL>().toEqualTypeOf<string>();
+      return context.text("exact");
+    });
+    const child = defineController({
+      base: "/child",
+      middleware: [actor],
+      routes: exact,
+      methodNotAllowed: (context, allow) => {
+        expectTypeOf<typeof context.var.actor>().toEqualTypeOf<string>();
+        return new Response("unsupported", { status: 405, headers: { Allow: allow } });
+      },
+    });
+    const fallback = defineHandler({ method: "all", path: "/*" }, (context) => context.text("fallback"));
+    const parent = defineController({ base: "/parent", routes: [fallback, child] });
+    const app = createHo3App({ base: "/api", controllers: [parent] });
+
+    expect(await (await app.request("/api/parent/child/exact")).text()).toBe("exact");
+    const unsupported = await app.request("/api/parent/child/exact", { method: "PUT" });
+    expect(unsupported.status).toBe(405);
+    expect(unsupported.headers.get("Allow")).toBe("GET, HEAD");
+    expect(await (await app.request("/api/parent/unknown")).text()).toBe("fallback");
+  });
+
   it("composes middleware and controllers under an application base", async () => {
     const middleware = defineMiddleware<TestEnv>(async (context, next) => {
       context.set("requestId", "req-1");
@@ -59,7 +89,7 @@ describe("ho3", () => {
     ]);
     const app = createHo3App({ base: "/api", middleware: [middleware], controllers: [controller] });
 
-    expectTypeOf(app).toMatchTypeOf<import("@hono/zod-openapi").OpenAPIHono<TestEnv>>();
+    expectTypeOf(app).toMatchTypeOf<import("../src").Ho3App<import("../src").Ho3Env & TestEnv>>();
 
     const response = await app.request("/api/users/me");
 
@@ -174,14 +204,19 @@ describe("ho3", () => {
   });
 
   it("installs root controllers outside the application base", async () => {
-    const root = defineRootController<TestEnv, []>([], (handler) => [
-      handler({ method: "get", path: "/.well-known/keys" }, (context) => context.text("root")),
+    const keys = defineHandler<TestEnv>({ method: "get", path: "/.well-known/keys" }, (context) =>
+      context.text("root"),
+    );
+    const root = defineRootController({ routes: keys });
+    const legacyRoot = defineRootController<TestEnv, []>([], (handler) => [
+      handler({ method: "get", path: "/.well-known/legacy" }, (context) => context.text("legacy")),
     ]);
-    const parent = defineController<TestEnv, []>("/parent", [], () => [root]);
+    const parent = defineController({ base: "/parent", routes: [root, legacyRoot] });
     const app = createHo3App();
     installController(app, parent, { base: "/api" });
 
     expect((await app.request("/.well-known/keys")).status).toBe(200);
+    expect((await app.request("/.well-known/legacy")).status).toBe(200);
     expect((await app.request("/api/parent/.well-known/keys")).status).toBe(404);
   });
 
@@ -274,7 +309,7 @@ describe("ho3", () => {
       },
     });
 
-    expectTypeOf(app).toMatchTypeOf<import("@hono/zod-openapi").OpenAPIHono<BindingsEnv & VariablesEnv>>();
+    expectTypeOf(app).toMatchTypeOf<import("../src").Ho3App<import("../src").Ho3Env & BindingsEnv & VariablesEnv>>();
   });
 
   it("runs typed composition hooks in lifecycle order", () => {
