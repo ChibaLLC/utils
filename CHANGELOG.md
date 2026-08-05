@@ -1,3 +1,9 @@
+## 2.4.0
+
+### Minor Changes
+
+- 332cc47: Add relative nested controller composition with inherited middleware environments and ordered wildcard handling.
+
 ## 2.3.0
 
 ### Minor Changes
