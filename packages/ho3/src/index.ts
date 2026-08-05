@@ -82,14 +82,6 @@ export type DefineHandler<BaseEnv extends Env = Ho3Env> = <const Options extends
   options: Options,
   callback: HandlerCallback<BaseEnv, Options>,
 ) => HandlerDefinition<HandlerEnv<BaseEnv, Options>>;
-type AnyControllerEntry = HandlerDefinition<any> | MiddlewareDefinition<any>;
-type RuntimeApp = Record<Method, (path: string, handler: Handler<any>) => unknown> & {
-  openapi: (route: RouteConfig, handler: RouteHandler<RouteConfig, any>) => unknown;
-};
-
-function toHonoPath(path: string): string {
-  return path.replaceAll(/\/{(.+?)}/g, "/:$1");
-}
 
 export type ControllerInstaller<T extends Env = Ho3Env> = {
   (app: OpenAPIHono<T>, config: Required<InstallConfig>): void;
@@ -99,6 +91,41 @@ export type ControllerInstaller<T extends Env = Ho3Env> = {
 export type ControllerCollection<T extends Env = Ho3Env> =
   | ControllerInstaller<T>
   | readonly ControllerInstaller<T>[];
+
+type AnyControllerEntry = HandlerDefinition<any> | MiddlewareDefinition<any> | ControllerInstaller<any>;
+
+export type DefineController<BaseEnv extends Env = Ho3Env> = <
+  const Middlewares extends readonly AnyMiddlewareDefinition[] = readonly AnyMiddlewareDefinition[],
+  const Entries extends readonly AnyControllerEntry[] = readonly AnyControllerEntry[],
+>(
+  base: string,
+  middlewares: Middlewares,
+  createHandlers: (
+    defineHandler: DefineHandler<ControllerEnv<BaseEnv, Middlewares>>,
+    defineController: DefineController<ControllerEnv<BaseEnv, Middlewares>>,
+  ) => Entries,
+  methodNotAllowed?: (
+    context: Context<NoInfer<ControllerEnv<BaseEnv, Middlewares>>>,
+    allow: string,
+  ) => Response,
+) => ControllerInstaller<ControllerEnv<BaseEnv, Middlewares>>;
+
+type RuntimeApp = Record<Method, (path: string, handler: Handler<any>) => unknown> & {
+  openapi: (route: RouteConfig, handler: RouteHandler<RouteConfig, any>) => unknown;
+};
+type InstallationState = {
+  fallbacks: Array<() => void>;
+  routeMethods: Map<string, Set<string>>;
+};
+const installationStates = new WeakMap<object, InstallationState>();
+
+function toHonoPath(path: string): string {
+  return path.replaceAll(/\/{(.+?)}/g, "/:$1");
+}
+
+function toRouteShape(path: string): string {
+  return toHonoPath(path).replaceAll(/\/:[^/{}?+*]+/g, "/:param");
+}
 
 type AppEnv<Middlewares extends readonly AnyMiddlewareDefinition[]> = [
   ControllerMiddlewareEnv<Middlewares>,
@@ -194,14 +221,18 @@ export function defineController<
 >(
   base: string,
   middlewares: Middlewares,
-  createHandlers: (defineHandler: DefineHandler<ControllerEnv<BaseEnv, Middlewares>>) => Entries,
+  createHandlers: (
+    defineHandler: DefineHandler<ControllerEnv<BaseEnv, Middlewares>>,
+    defineController: DefineController<ControllerEnv<BaseEnv, Middlewares>>,
+  ) => Entries,
   methodNotAllowed?: (context: Context<NoInfer<ControllerEnv<BaseEnv, Middlewares>>>, allow: string) => Response,
 ): ControllerInstaller<ControllerEnv<BaseEnv, Middlewares>> {
   type ScopedEnv = ControllerEnv<BaseEnv, Middlewares>;
   const defineScopedHandler = defineHandler as DefineHandler<ScopedEnv>;
-  const entries = createHandlers(defineScopedHandler);
+  const defineScopedController = defineController as DefineController<ScopedEnv>;
+  const entries = createHandlers(defineScopedHandler, defineScopedController);
 
-  return (app, config) => {
+  const install = (app: OpenAPIHono<ScopedEnv>, config: Required<InstallConfig>, state: InstallationState) => {
     const scopedConfig = { base: joinURL(config.base, base) };
 
     for (const middleware of middlewares) {
@@ -209,14 +240,26 @@ export function defineController<
     }
 
     const wildcardHandlers = entries.filter(
-      (entry): entry is HandlerDefinition<ScopedEnv> => entry.kind === "handler" && entry.options.method === "all",
+      (entry): entry is HandlerDefinition<ScopedEnv> =>
+        typeof entry !== "function" && entry.kind === "handler" && entry.options.method === "all",
     );
 
     for (const entry of entries) {
+      if (typeof entry === "function") {
+        entry(app, { base: entry.root ? "" : scopedConfig.base });
+        continue;
+      }
       if (entry.kind === "handler" && entry.options.method === "all") continue;
 
       if (entry.kind === "handler") {
         installHandler(app, entry, scopedConfig);
+        if (entry.options.method !== "use" && !entry.options.path.includes("*")) {
+          const path = toRouteShape(joinURL(scopedConfig.base, entry.options.path));
+          const methods = state.routeMethods.get(path) ?? new Set<string>();
+          methods.add(entry.options.method.toUpperCase());
+          if (entry.options.method === "get") methods.add("HEAD");
+          state.routeMethods.set(path, methods);
+        }
       } else {
         installMiddleware(app, entry, scopedConfig);
       }
@@ -227,6 +270,7 @@ export function defineController<
 
       for (const entry of entries) {
         if (
+          typeof entry === "function" ||
           entry.kind !== "handler" ||
           entry.options.method === "all" ||
           entry.options.method === "use" ||
@@ -236,22 +280,23 @@ export function defineController<
         }
 
         const path = toHonoPath(joinURL(scopedConfig.base, entry.options.path));
-        const methods = routes.get(path) ?? new Set<string>();
-        methods.add(entry.options.method.toUpperCase());
-        if (entry.options.method === "get") methods.add("HEAD");
-        routes.set(path, methods);
+        routes.set(path, state.routeMethods.get(toRouteShape(path)) ?? new Set<string>());
       }
 
-      for (const [path, methods] of routes) {
-        const allow = [...methods].sort().join(", ");
-        app.all(path, (context: Context<ScopedEnv>) => methodNotAllowed(context, allow));
-      }
+      state.fallbacks.push(() => {
+        for (const [path, methods] of routes) {
+          const allow = [...methods].sort().join(", ");
+          app.all(path, (context: Context<ScopedEnv>) => methodNotAllowed(context, allow));
+        }
+      });
     }
 
-    for (const handler of wildcardHandlers) {
-      installHandler(app, handler, scopedConfig);
-    }
+    state.fallbacks.push(() => {
+      for (const handler of wildcardHandlers) installHandler(app, handler, scopedConfig);
+    });
   };
+
+  return (app, config) => withInstallationState(app, (state) => install(app, config, state));
 }
 
 export function defineRootController<
@@ -260,7 +305,10 @@ export function defineRootController<
   const Entries extends readonly AnyControllerEntry[] = readonly AnyControllerEntry[],
 >(
   middlewares: Middlewares,
-  createHandlers: (defineHandler: DefineHandler<ControllerEnv<BaseEnv, Middlewares>>) => Entries,
+  createHandlers: (
+    defineHandler: DefineHandler<ControllerEnv<BaseEnv, Middlewares>>,
+    defineController: DefineController<ControllerEnv<BaseEnv, Middlewares>>,
+  ) => Entries,
   methodNotAllowed?: (context: Context<NoInfer<ControllerEnv<BaseEnv, Middlewares>>>, allow: string) => Response,
 ): ControllerInstaller<ControllerEnv<BaseEnv, Middlewares>> {
   const controller = defineController<BaseEnv, Middlewares, Entries>(
@@ -278,7 +326,7 @@ export function installController<T extends Env>(
   controller: ControllerInstaller<any>,
   config: InstallConfig = {},
 ): void {
-  controller(app, { base: controller.root ? "" : (config.base ?? "") });
+  withInstallationState(app, () => controller(app, { base: controller.root ? "" : (config.base ?? "") }));
 }
 
 export function installControllers<T extends Env>(
@@ -286,13 +334,45 @@ export function installControllers<T extends Env>(
   controllers: readonly ControllerCollection<any>[],
   config: InstallConfig = {},
 ): void {
-  for (const collection of controllers) {
-    if (Array.isArray(collection)) {
-      for (const controller of collection) installController(app, controller, config);
-    } else {
-      installController(app, collection as ControllerInstaller<any>, config);
+  withInstallationState(app, () => {
+    const install = (controller: ControllerInstaller<any>) =>
+      controller(app, { base: controller.root ? "" : (config.base ?? "") });
+    for (const collection of controllers) {
+      if (Array.isArray(collection)) {
+        for (const controller of collection) install(controller);
+      } else {
+        install(collection as ControllerInstaller<any>);
+      }
     }
+  });
+}
+
+function createInstallationState(): InstallationState {
+  return { fallbacks: [], routeMethods: new Map() };
+}
+
+function withInstallationState<T extends Env>(
+  app: OpenAPIHono<T>,
+  install: (state: InstallationState) => void,
+): void {
+  const activeState = installationStates.get(app);
+  if (activeState) {
+    install(activeState);
+    return;
   }
+
+  const state = createInstallationState();
+  installationStates.set(app, state);
+  try {
+    install(state);
+    installFallbacks(state);
+  } finally {
+    installationStates.delete(app);
+  }
+}
+
+function installFallbacks(state: InstallationState): void {
+  for (const install of state.fallbacks) install();
 }
 
 export function createHo3App<

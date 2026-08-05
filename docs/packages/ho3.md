@@ -51,6 +51,23 @@ export default app;
 
 `Ho3Env` supplies the application bindings and variables used by every definition. Route and controller middleware environments are inferred and intersected with it rather than replacing it. Controller middleware is installed before its handlers.
 
+## Nested controllers
+
+The controller callback receives a parent-scoped `defineController` as its second argument. Use it to compose folder-owned subtrees with relative paths instead of repeating the parent's base on every handler:
+
+```ts
+const auth = defineController("/auth", [sessionContext], (defineHandler, defineController) => [
+  defineController("/credentials", [credentialContext], (defineCredentialHandler) => [
+    defineCredentialHandler({ method: "get", path: "/{id}" }, (context) => {
+      return context.json({ id: context.req.param("id") });
+    }),
+  ]),
+  defineHandler({ method: "all", path: "/*" }, (context) => context.notFound()),
+]);
+```
+
+Nested bases are relative to every ancestor and the application base. Parent middleware environments are inherited by child handlers, then intersected with child middleware environments. Each nested controller retains its own middleware and unsupported-method policy. Nested controllers are installed before a parent's `all` wildcard, regardless of entry order, so a parent fallback cannot shadow a child route. A `defineRootController` returned from a controller remains absolute and ignores ancestor/application bases. Custom installers that register routes directly remain responsible for their own fallback ordering and unsupported-method metadata.
+
 ## Reusable callbacks
 
 Ho3 exports callback types that default to the augmented `Ho3Env`. Use `Handler` for an ordinary reusable Hono callback:
@@ -65,7 +82,7 @@ export const serveHealth: Handler = (context) => {
 export default defineHandler({ method: "get", path: "/health" }, serveHealth);
 ```
 
-`OpenAPIHandler<Options>` types a callback against one complete Zod OpenAPI route. `HandlerCallback<Env, Options>` selects OpenAPI or ordinary Hono callback typing using the same rule as `defineHandler`. Ho3 also exports `HandlerOptions`, `HandlerEnv`, `ControllerEnv`, `EnvOfMiddleware`, `DefineHandler`, `MiddlewareHandler`, and the public definition and installer types for framework integrations.
+`OpenAPIHandler<Options>` types a callback against one complete Zod OpenAPI route. `HandlerCallback<Env, Options>` selects OpenAPI or ordinary Hono callback typing using the same rule as `defineHandler`. Ho3 also exports `HandlerOptions`, `HandlerEnv`, `ControllerEnv`, `EnvOfMiddleware`, `DefineHandler`, `DefineController`, `MiddlewareHandler`, and the public definition and installer types for framework integrations.
 
 `createHo3App` installs middleware in array order, then installs controllers. The returned app environment is the intersection of the supplied middleware environments.
 

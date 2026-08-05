@@ -67,15 +67,122 @@ describe("ho3", () => {
     expect(await response.text()).toBe("req-1");
   });
 
+  it("nests relative controllers with inherited middleware environments and routing order", async () => {
+    type ActorEnv = { Variables: { actor: string } };
+    type TenantEnv = { Variables: { tenant: string } };
+    const actor = defineMiddleware<ActorEnv>(async (context, next) => {
+      context.set("actor", "Ada");
+      await next();
+    });
+    const tenant = defineMiddleware<TenantEnv>(async (context, next) => {
+      context.set("tenant", "chiba");
+      await next();
+    });
+    const auth = defineController<TestEnv, [typeof actor]>(
+      "/auth",
+      [actor],
+      (handler, controller) => [
+        handler({ method: "all", path: "/*" }, (context) => context.text("auth fallback")),
+        controller(
+          "/sessions",
+          [tenant],
+          (childHandler) => [
+            childHandler(
+              {
+                method: "get",
+                path: "/{id}",
+                request: { params: z.object({ id: z.string() }) },
+                responses: { 200: { description: "Session", content: { "text/plain": { schema: z.string() } } } },
+              },
+              (context) => {
+                expectTypeOf(context.get("actor")).toEqualTypeOf<string>();
+                expectTypeOf(context.get("tenant")).toEqualTypeOf<string>();
+                return context.text(
+                  `${context.get("actor")}:${context.get("tenant")}:${context.req.valid("param").id}`,
+                  200,
+                );
+              },
+            ),
+          ],
+          (_context, allow) => new Response("nested unsupported", { status: 405, headers: { Allow: allow } }),
+        ),
+      ],
+    );
+    const app = createHo3App({ base: "/api/v1", controllers: [auth] });
+
+    expect(await (await app.request("/api/v1/auth/sessions/session-1")).text()).toBe("Ada:chiba:session-1");
+    const unsupported = await app.request("/api/v1/auth/sessions/session-1", { method: "PUT" });
+    expect(unsupported.status).toBe(405);
+    expect(unsupported.headers.get("Allow")).toBe("GET, HEAD");
+    expect(await (await app.request("/api/v1/auth/unknown")).text()).toBe("auth fallback");
+  });
+
+  it("defers nested wildcards until later sibling concrete routes are installed", async () => {
+    const parent = defineController("/parent", [], (_handler, controller) => {
+      const fallback = controller("/child", [], (handler) => [
+        handler({ method: "all", path: "/*" }, (context) => context.text("child fallback")),
+      ]);
+      const wrappedFallback: typeof fallback = (app, config) => fallback(app, config);
+      return [
+        wrappedFallback,
+        controller("/child", [], (handler) => [
+          handler({ method: "get", path: "/exact" }, (context) => context.text("exact")),
+        ]),
+      ];
+    });
+    const app = createHo3App();
+    parent(app, { base: "" });
+
+    expect(await (await app.request("/parent/child/exact")).text()).toBe("exact");
+    expect(await (await app.request("/parent/child/unknown")).text()).toBe("child fallback");
+  });
+
+  it("defers nested method fallbacks and combines sibling Allow methods", async () => {
+    const parent = defineController<TestEnv, []>("/parent", [], (_handler, controller) => [
+      controller(
+        "/child",
+        [],
+        (handler) => [handler({ method: "get", path: "/exact/{id}" }, (context) => context.text("get"))],
+        (_context, allow) => new Response("unsupported", { status: 405, headers: { Allow: allow } }),
+      ),
+      controller("/child", [], (handler) => [
+        handler({ method: "post", path: "/exact/{slug}" }, (context) => context.text("post")),
+      ]),
+    ]);
+    const app = createHo3App({ controllers: [parent] });
+
+    expect(await (await app.request("/parent/child/exact/value", { method: "POST" })).text()).toBe("post");
+    const unsupported = await app.request("/parent/child/exact/value", { method: "PUT" });
+    expect(unsupported.status).toBe(405);
+    expect(unsupported.headers.get("Allow")).toBe("GET, HEAD, POST");
+  });
+
+  it("keeps literal colon segments distinct when combining Allow methods", async () => {
+    const controller = defineController<TestEnv, []>(
+      "/items",
+      [],
+      (handler) => [
+        handler({ method: "get", path: "/literal:foo" }, (context) => context.text("get")),
+        handler({ method: "post", path: "/literal:bar" }, (context) => context.text("post")),
+      ],
+      (_context, allow) => new Response("unsupported", { status: 405, headers: { Allow: allow } }),
+    );
+    const app = createHo3App({ controllers: [controller] });
+
+    const unsupported = await app.request("/items/literal:foo", { method: "PUT" });
+    expect(unsupported.headers.get("Allow")).toBe("GET, HEAD");
+  });
+
   it("installs root controllers outside the application base", async () => {
     const root = defineRootController<TestEnv, []>([], (handler) => [
       handler({ method: "get", path: "/.well-known/keys" }, (context) => context.text("root")),
     ]);
+    const parent = defineController<TestEnv, []>("/parent", [], () => [root]);
     const app = createHo3App();
-    installController(app, root, { base: "/api" });
+    installController(app, parent, { base: "/api" });
 
     expect((await app.request("/.well-known/keys")).status).toBe(200);
-    expect((await app.request("/api/.well-known/keys")).status).toBe(404);
+    expect((await app.request("/api/parent/.well-known/keys")).status).toBe(404);
   });
 
   it("handles unsupported methods before controller wildcards", async () => {
