@@ -4,6 +4,8 @@
 
 - 0a37731: Add declarative object-form Ho3 controllers with one-or-many routes while retaining scoped callback composition.
 
+- Run route middleware for ordinary handlers, preserve OpenAPI typing for readonly middleware arrays, install generated 405 handlers before controller wildcards, and retain exact-path `all` handlers as concrete routes.
+
 ## 2.4.0
 
 ### Minor Changes
