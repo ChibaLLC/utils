@@ -249,6 +249,54 @@ At runtime the effective context is cumulative. At compile time a prebuilt handl
 
 Type inference assumes that variables contributed by application or controller middleware are available across the typed composition scope. If `defineMiddleware` narrows `options.base` or `options.method`, that middleware may not execute for every typed route or hook. Use narrowed middleware for side effects that do not contribute required variables, or move variable-producing middleware to the exact route that consumes it.
 
+### Explicit handler environments
+
+Pass an environment as the first `defineHandler` type argument when a prebuilt handler should declare a requirement that is not project-wide:
+
+```ts
+import { defineController, defineHandler, defineMiddleware } from "@chiballc/utils/ho3";
+
+type RequestContextEnv = {
+  Variables: {
+    requestId: string;
+  };
+};
+
+const requestContext = defineMiddleware<RequestContextEnv>(async (context, next) => {
+  context.set("requestId", crypto.randomUUID());
+  await next();
+});
+
+const currentUser = defineHandler<RequestContextEnv>({ method: "get", path: "/me" }, (context) => {
+  return context.json({
+    requestId: context.get("requestId"), // string
+  });
+});
+
+const users = defineController({
+  base: "/users",
+  middleware: [requestContext],
+  routes: currentUser,
+});
+```
+
+The explicit type argument checks the handler callback; `requestContext` provides the declared variable at runtime. The later `defineController` call cannot retroactively infer its middleware environment into the already-created `currentUser` handler.
+
+When the handler requirement should be derived from a middleware tuple instead of repeated manually, compute it with `ControllerEnv`:
+
+```ts
+import type { ControllerEnv, Ho3Env } from "@chiballc/utils/ho3";
+
+type UsersEnv = ControllerEnv<Ho3Env, [typeof requestContext]>;
+
+const currentUser = defineHandler<UsersEnv>({ method: "get", path: "/me" }, (context) => {
+  // Includes augmented Ho3Env plus RequestContextEnv.
+  return context.json({ requestId: context.get("requestId") });
+});
+```
+
+`defineHandler<BaseEnv, Options>` also accepts an explicit second type argument for reusable option objects, although ordinary application code should let `Options` infer from the first argument.
+
 ### Global middleware augmentation
 
 Typed global middleware contributes its environment to the returned app and post-middleware hooks. This example continues from the project-wide recipe above: `requestState` initializes the `requestId` declared by `Ho3Env`, while `tenantContext` contributes and initializes `tenantId`.
