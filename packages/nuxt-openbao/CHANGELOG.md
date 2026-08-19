@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.0.6
+
+### Patch Changes
+
+- fix the strict data checking that may be an issue for numbers or other data types
+
 ## 2.0.5
 
 ### Patch Changes
