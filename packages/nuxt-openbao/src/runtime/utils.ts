@@ -3,7 +3,7 @@ import { joinURL } from "ufo";
 import { $fetch } from "ofetch";
 import { consola } from "consola";
 
-import { entries, execute } from "@chiballc/utils";
+import { entries, execute, hasOwnProperties } from "@chiballc/utils";
 import type { OpenBaoOptions } from "../types";
 import { crawlVarsFromEnv, getEnvSereverURL, reconsileConfig, setEnv } from "./env";
 
@@ -58,8 +58,8 @@ type OpenBaoKV2Response = {
 export const KIBAO_DEFAULT_MAX_RESPONSE_BYTES = 64 * 1024;
 
 class KibaoRequestError extends Error {
-  constructor(message: string) {
-    super(message);
+  constructor(message: string, options?: { cause: any }) {
+    super(message, options);
     this.name = "KibaoRequestError";
   }
 }
@@ -67,7 +67,7 @@ class KibaoRequestError extends Error {
 function responseLimit(options?: KibaoRequestOptions) {
   const limit = options?.maxResponseBytes ?? KIBAO_DEFAULT_MAX_RESPONSE_BYTES;
   if (!Number.isSafeInteger(limit) || limit < 1) {
-    throw new KibaoRequestError("The Kibao response limit is invalid.");
+    throw new KibaoRequestError("The Kibao response limit is invalid.", { cause: limit });
   }
   return limit;
 }
@@ -165,20 +165,21 @@ async function requestJson<T>(url: string, init: Parameters<typeof $fetch.raw>[1
 
 function variablesFrom(response: unknown) {
   if (
-    !response ||
-    typeof response !== "object" ||
-    !("data" in response) ||
-    !response.data ||
-    typeof response.data !== "object" ||
-    !("data" in response.data) ||
-    !response.data.data ||
-    typeof response.data.data !== "object" ||
-    Array.isArray(response.data.data) ||
-    !Object.values(response.data.data).every((value) => typeof value === "string")
+    !hasOwnProperties(response, ["data"] as const, {
+      allowNullish: false,
+    })
   ) {
     throw new KibaoRequestError("The Kibao response is invalid.");
   }
-  return response.data.data as Record<string, string>;
+  
+  if (
+    !hasOwnProperties(response.data, ["data"] as const, {
+      allowNullish: false,
+    })
+  ) {
+    throw new KibaoRequestError("The Kibao response is invalid.");
+  }
+  return response.data.data as Record<string, string | number>
 }
 
 export async function getSecrets(
@@ -217,9 +218,13 @@ export async function getSecrets(
     throw new KibaoRequestError("The Kibao request is invalid.");
   }
 
-  const response = await requestJson<OpenBaoKV2Response>(joinURL(credentials.baseURL, path), {
-    headers,
-  }, options);
+  const response = await requestJson<OpenBaoKV2Response>(
+    joinURL(credentials.baseURL, path),
+    {
+      headers,
+    },
+    options,
+  );
 
   return {
     vars: variablesFrom(response),
@@ -237,19 +242,31 @@ export async function getKibaoToken<T extends KibaoLoginResponse>(
   options?: KibaoRequestOptions,
 ) {
   const namespace = credentials.namespace || KIBAO_DEFAULT_NAMESPACE;
-  const response = await requestJson<T>(joinURL(credentials.baseURL, "v1/auth/approle/login"), {
-    body: {
-      role_id: credentials.bao.role.id,
-      secret_id: credentials.bao.secret.id,
+  const response = await requestJson<T>(
+    joinURL(credentials.baseURL, "v1/auth/approle/login"),
+    {
+      body: {
+        role_id: credentials.bao.role.id,
+        secret_id: credentials.bao.secret.id,
+      },
+      headers: {
+        "X-Vault-Namespace": namespace,
+      },
+      method: "POST",
     },
-    headers: {
-      "X-Vault-Namespace": namespace,
-    },
-    method: "POST",
-  }, options);
+    options,
+  );
 
-  if (!response || typeof response !== "object" || !("auth" in response) || !response.auth || typeof response.auth !== "object" || !("client_token" in response.auth) || typeof response.auth.client_token !== "string") {
-    throw new KibaoRequestError("The Kibao response is invalid.");
+  if (
+    !response ||
+    typeof response !== "object" ||
+    !("auth" in response) ||
+    !response.auth ||
+    typeof response.auth !== "object" ||
+    !("client_token" in response.auth) ||
+    typeof response.auth.client_token !== "string"
+  ) {
+    throw new KibaoRequestError("The Kibao response is invalid.", {cause: response});
   }
 
   return {
@@ -328,7 +345,7 @@ export async function autoEnv(access: SmartString<KibaoAccess> = "public", updat
 }
 
 export async function getAllVars(openbao: OpenBaoOptions, options?: { baseURL?: string }) {
-  const _vars: Partial<Record<keyof OpenBaoOptions, Record<string, string>>> = {};
+  const _vars: Partial<Record<keyof OpenBaoOptions, Record<string, string | number>>> = {};
   for (const [access, config] of entries(openbao)) {
     if (!config) {
       continue;

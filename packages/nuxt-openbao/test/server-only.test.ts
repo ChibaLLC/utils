@@ -10,7 +10,12 @@ const fixtureRoot = fileURLToPath(new URL("./fixtures/server-only", import.meta.
 
 describe("Kibao server-only mode", () => {
   let openbao: MockOpenBaoServer;
-  let worker: { fetch(request: Request): Promise<Response> };
+  let worker: {
+    fetch(
+      request: Request,
+      env?: { ASSETS: { fetch: () => Promise<Response> } },
+    ): Promise<Response>;
+  };
 
   beforeAll(async () => {
     openbao = await createMockOpenBaoServer();
@@ -33,7 +38,7 @@ describe("Kibao server-only mode", () => {
 
   it("omits the OpenBao proxy route", async () => {
     const response = await worker.fetch(new Request("https://fixture.test/bao-proxy/v1/demo/data/test/public"), {
-      ASSETS: { fetch: () => new Response(null, { status: 404 }) },
+      ASSETS: { fetch: async () => new Response(null, { status: 404 }) },
     });
 
     expect(response.status).toBe(404);
