@@ -4,7 +4,7 @@ import { addTypeTemplate } from "@nuxt/kit";
 import type { OpenBaoOptions } from "./types";
 import { entries } from "@chiballc/utils";
 
-export function printOpenBaoConfig(config: OpenBaoOptions) {
+export function printOpenBaoConfig(config?: OpenBaoOptions) {
   for (const [access, options] of entries(config)) {
     if (!options) {
       continue;
@@ -20,9 +20,9 @@ export function printOpenBaoConfig(config: OpenBaoOptions) {
   }
 }
 
-type KibaoVarsByAccess = Partial<Record<SmartString<KibaoAccess>, Record<string, string>>>;
+type KibaoVarsByAccess = Partial<Record<SmartString<KibaoAccess>, Record<string, string | number>>>;
 
-function renderVars(vars: Record<string, string>) {
+function renderVars(vars: Record<string, string | number>) {
   return Object.keys(vars)
     .sort()
     .map((key) => `      ${JSON.stringify(key)}: string;`)
@@ -32,7 +32,7 @@ function renderVars(vars: Record<string, string>) {
 export function createTypeTemplates(vars: KibaoVarsByAccess) {
   const publicVars = vars.public ?? {};
 
-  const allVars = Object.values(vars).reduce<Record<string, string>>((acc, current) => ({ ...acc, ...current }), {});
+  const allVars = Object.values(vars).reduce<Record<string, string | number>>((acc, current) => ({ ...acc, ...current }), {});
 
   const renderedPublicVars = renderVars(publicVars);
   const renderedAllVars = renderVars(allVars);

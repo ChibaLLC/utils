@@ -14,6 +14,7 @@ describe("Kibao server-only mode", () => {
     fetch(
       request: Request,
       env?: { ASSETS: { fetch: () => Promise<Response> } },
+      context?: { waitUntil(promise: Promise<unknown>): void; passThroughOnException(): void },
     ): Promise<Response>;
   };
 
@@ -37,10 +38,16 @@ describe("Kibao server-only mode", () => {
   });
 
   it("omits the OpenBao proxy route", async () => {
-    const response = await worker.fetch(new Request("https://fixture.test/bao-proxy/v1/demo/data/test/public"), {
-      ASSETS: { fetch: async () => new Response(null, { status: 404 }) },
-    });
-
+    const response = await worker.fetch(
+      new Request("https://fixture.test/bao-proxy/v1/demo/data/test/public"),
+      {
+        ASSETS: { fetch: async () => new Response(null, { status: 404 }) },
+      },
+      {
+        waitUntil() {},
+        passThroughOnException() {},
+      },
+    );
     expect(response.status).toBe(404);
   });
 });

@@ -99,7 +99,7 @@ export default defineNuxtModule<KibaoConfig["kibao"]>({
           disabled: resolved.disabled,
           server: resolved.server,
           // The browser only needs to know that fixture values are already injected.
-          test: testVars ? { vars: {} } : undefined,
+          test: testVars ? { vars: {}, enabled: true } : undefined,
           openbao: {
             public: groupedVars.public || ({} as any),
           },

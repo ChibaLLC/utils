@@ -5,6 +5,7 @@ const mockOpenBaoURL = process.env.MOCK_OPENBAO_URL || "";
 
 export default defineNuxtConfig({
   modules: [[Kibao, { serverOnly: true }]],
+  pages: true,
   nitro: {
     preset: "cloudflare_module",
   },

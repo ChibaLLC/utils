@@ -329,10 +329,10 @@ export async function autoEnv(access: SmartString<KibaoAccess> = "public", updat
   const baoVars = await getSecrets(
     {
       baseURL: baoConfig.server.bao,
-      location: baoConfig.openbao[access]?.location as Location,
-      bao: baoConfig.openbao[access]?.bao as any,
-      namespace: baoConfig.openbao[access]?.namespace,
-      token: baoConfig.openbao[access]?.token as any,
+      location: baoConfig.openbao?.[access]?.location as Location,
+      bao: baoConfig.openbao?.[access]?.bao as any,
+      namespace: baoConfig.openbao?.[access]?.namespace,
+      token: baoConfig.openbao?.[access]?.token as any,
     },
     access,
   );

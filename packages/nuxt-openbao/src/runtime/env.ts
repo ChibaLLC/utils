@@ -137,7 +137,7 @@ export function setEnv(kibao: { vars: Record<string, unknown> }) {
   }
 }
 
-export function applyRuntimeConfigEnv(vars: Record<string, string>, config?: RuntimeConfigLike | null) {
+export function applyRuntimeConfigEnv(vars: Record<string, string | number>, config?: RuntimeConfigLike | null) {
   if (!config || typeof config !== "object") {
     return;
   }
@@ -187,7 +187,7 @@ function toCamelCase(first: string, ...rest: string[]) {
   return [first, ...rest.map((part) => part.charAt(0).toUpperCase() + part.slice(1))].join("");
 }
 
-function setExistingPath(target: Record<string, any>, path: string[], value: string) {
+function setExistingPath(target: Record<string, any>, path: string[], value: string | number) {
   let current = target;
   for (const segment of path.slice(0, -1)) {
     if (!current || typeof current !== "object" || !(segment in current)) {

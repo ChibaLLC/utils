@@ -1,4 +1,4 @@
-import { createServer } from "node:http";
+import { createServer, type RequestListener } from "node:http";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   KIBAO_DEFAULT_MAX_RESPONSE_BYTES,
@@ -18,7 +18,7 @@ afterEach(async () => {
   await Promise.all(servers.splice(0).map((server) => server.close()));
 });
 
-async function createTestServer(handler: Parameters<typeof createServer>[0]): Promise<TestServer> {
+async function createTestServer(handler: RequestListener): Promise<TestServer> {
   const instance = createServer(handler);
   await new Promise<void>((resolve) => instance.listen(0, "127.0.0.1", resolve));
   const address = instance.address();
@@ -141,7 +141,7 @@ describe("bounded Kibao transport", () => {
       });
     });
 
-    const error = await getSecrets(createTokenCredentials(openbao.baseURL)).catch((value: unknown) => value as Error);
+    const error = (await getSecrets(createTokenCredentials(openbao.baseURL)).catch((value: unknown) => value)) as Error;
 
     expect(requests).toBe(1);
     expect(error.message).toBe("The Kibao request failed.");

@@ -4,7 +4,7 @@ import type { KibaoAccess, KibaoCredentials } from "./runtime/utils";
 export type OpenBaoOptions = Prettify<Partial<Record<SmartString<KibaoAccess>, KibaoCredentials>>>;
 
 export interface KibaoVars {
-  [key: string]: string;
+  [key: string]: string | number;
 }
 
 export interface KibaoTestConfig {
