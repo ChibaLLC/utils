@@ -41,11 +41,11 @@ export function createTypeTemplates(vars: KibaoVarsByAccess) {
     import type { H3Event } from "h3";
     import type { KibaoConfig } from "#imports";
 
-    export interface ${name} extends KibaoConfig["kibao"] {
+    export type ${name} = KibaoConfig["kibao"] & {
       vars: {
         ${renderedVars}
       };
-    }
+    };
 
     export interface KibaoVarsPayload {
       readonly data: ${name}["vars"];

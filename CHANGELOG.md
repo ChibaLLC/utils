@@ -1,3 +1,9 @@
+## 2.5.2
+
+### Patch Changes
+
+- Kibao: generate `ParsedKibaoNuxtConfig`/`ParsedKibaoNitroConfig` as intersection types instead of interfaces extending `KibaoConfig["kibao"]`. Interfaces cannot extend indexed access types, and Nuxt 4.6+ passes type templates to the Vue SFC compiler, which failed builds on the invalid declaration.
+
 ## 2.5.0
 
 ### Minor Changes
