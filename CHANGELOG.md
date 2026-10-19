@@ -1,3 +1,11 @@
+# @chiballc/utils
+
+## 2.5.3
+
+### Patch Changes
+
+- Allow Vite 8 as a peer dependency for the service worker plugin.
+
 ## 2.5.2
 
 ### Patch Changes
