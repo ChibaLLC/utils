@@ -3,6 +3,20 @@ import { dts } from "rolldown-plugin-dts";
 
 const plugins = [dts()];
 
+const imagesExternal = [/^node:/, "@nuxt/kit", "image-meta", "ipx", "sharp", "unstorage", /^unstorage\//];
+/**
+ * Each images entry is built on its own so no chunk is shared between targets: the Workers entry can never pull in a
+ * module that only the Node build imports. `scripts/validate-images.mjs` checks the output.
+ */
+const imagesEntries = [
+  { name: "core", platform: "neutral" },
+  { name: "cloudflare", platform: "neutral" },
+  { name: "node", platform: "node" },
+  { name: "bun", platform: "neutral" },
+  { name: "nitro", platform: "node" },
+  { name: "nuxt", platform: "node" },
+] as const;
+
 export default defineConfig([
   // --- Root Utils ---
   {
@@ -143,4 +157,18 @@ export default defineConfig([
     ],
     platform: "neutral",
   },
+
+  // --- Images ---
+  ...imagesEntries.map((entry) => ({
+    input: { [entry.name]: `packages/images/src/${entry.name}.ts` },
+    plugins,
+    external: imagesExternal,
+    platform: entry.platform,
+    output: {
+      dir: "dist/images",
+      format: "es" as const,
+      entryFileNames: "[name].mjs",
+      chunkFileNames: `${entry.name}-[name]-[hash].mjs`,
+    },
+  })),
 ]);

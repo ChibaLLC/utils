@@ -25,6 +25,8 @@ export default defineNuxtConfig({
 });
 ```
 
+Image renditions are available from `@chiballc/utils/images`. Conditional exports select the Cloudflare Images binding, `ipx` (Node) or `Bun.Image` (Bun) adapter by build target, with unstorage-backed cache layers; `@chiballc/utils/images/nuxt` registers it for Nitro presets. See [Images](https://chiballc.github.io/utils/packages/images).
+
 Full API documentation, examples, lifecycle behavior, and the OpenBao security model are available at [chiballc.github.io/utils](https://chiballc.github.io/utils/).
 
 ## Documentation

@@ -1,0 +1,19 @@
+{
+  "name": "@chiballc/utils-images",
+  "version": "0.0.0",
+  "description": "Runtime-agnostic image renditions: one transform interface with Cloudflare Images, ipx and Bun.Image adapters",
+  "private": true,
+  "scripts": {
+    "test": "vitest run"
+  },
+  "keywords": [
+    "images",
+    "thumbnails",
+    "cloudflare",
+    "ipx",
+    "bun"
+  ],
+  "author": "Chiba LLC",
+  "license": "ISC",
+  "type": "module"
+}

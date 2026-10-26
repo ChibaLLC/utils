@@ -25,6 +25,7 @@ export default defineConfig({
           { text: "Core Utilities", link: "/packages/utils" },
           { text: "Ho3", link: "/packages/ho3" },
           { text: "Worker Messaging", link: "/packages/workers" },
+          { text: "Images", link: "/packages/images" },
           { text: "Kibao", link: "/packages/kibao" },
         ],
       },
