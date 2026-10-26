@@ -1,0 +1,38 @@
+name: Test
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  images:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm rolldown -c
+
+      - name: Ho3
+        run: pnpm test:ho3
+
+      - name: Images conformance (Node, Cloudflare mock) and build check
+        run: pnpm test:images
+
+      - name: Images conformance (Bun)
+        run: pnpm test:images:bun
